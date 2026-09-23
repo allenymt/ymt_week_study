@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
  * @param prevBankMinutes     上周银行结余（冗余存储，避免回溯计算全部历史）
  * @param prevSavingCents     上周存钱累计（同上）
  */
-@Entity(tableName = "weeks")
+@Entity(tableName = "week_meta")
 data class WeekEntity(
     @PrimaryKey val weekStart: Long,
     val usedMinutes: Int = 0,

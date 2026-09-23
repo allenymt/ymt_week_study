@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.vdian.screentime.domain.Subject
 
-@Entity(tableName = "exams")
+@Entity(tableName = "exam_record")
 data class ExamEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val weekStart: Long,

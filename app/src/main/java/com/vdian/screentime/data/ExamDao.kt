@@ -11,18 +11,18 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ExamDao {
 
-    @Query("SELECT * FROM exams WHERE weekStart = :weekStart ORDER BY id ASC")
+    @Query("SELECT * FROM exam_record WHERE weekStart = :weekStart ORDER BY id ASC")
     fun observeWeek(weekStart: Long): Flow<List<ExamEntity>>
 
-    @Query("SELECT * FROM exams ORDER BY weekStart ASC, id ASC")
+    @Query("SELECT * FROM exam_record ORDER BY weekStart ASC, id ASC")
     suspend fun all(): List<ExamEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ExamEntity)
 
-    @Query("DELETE FROM exams WHERE weekStart = :weekStart AND subject = :subject")
+    @Query("DELETE FROM exam_record WHERE weekStart = :weekStart AND subject = :subject")
     suspend fun delete(weekStart: Long, subject: Subject)
 
-    @Query("DELETE FROM exams")
+    @Query("DELETE FROM exam_record")
     suspend fun deleteAll()
 }
