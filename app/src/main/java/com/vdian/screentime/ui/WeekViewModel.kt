@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.vdian.screentime.data.ScreenTimeRepository
 import com.vdian.screentime.data.WeekBoard
 import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.Subject
 import com.vdian.screentime.domain.WeekDates
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -71,6 +72,22 @@ class WeekViewModel(private val repo: ScreenTimeRepository) : ViewModel() {
     fun onParentLongPress(epochDay: Long, item: Item) {
         val week = weekStart
         viewModelScope.launch { repo.retractClaim(week, epochDay, item) }
+    }
+
+    /**
+     * 录入某科考试成绩。空串或非数字按 0 处理，仓库层会把 `score <= 0` 的记录删掉，
+     * 所以"清空输入框"就等于撤销该科成绩。
+     */
+    fun setExam(subject: Subject, scoreText: String) {
+        val score = scoreText.trim().toIntOrNull() ?: 0
+        val week = weekStart
+        viewModelScope.launch { repo.setExam(week, subject, score) }
+    }
+
+    /** 保存"本周一句话总结"。调用方需自行判断文字是否有改动，见 [WeekFragment]。 */
+    fun saveNotes(good: String, improve: String) {
+        val week = weekStart
+        viewModelScope.launch { repo.saveNotes(week, good, improve) }
     }
 
     fun currentWeekStart(): Long = weekStart

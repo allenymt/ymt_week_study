@@ -17,8 +17,10 @@ data class WeekSummary(
     val usedMinutes: Int,
     val overtimeMinutes: Int,
     val redeemedMinutes: Int,
+    val totalUsedMinutes: Int,           // 本周已使用 = 已用 + 超时 + 已兑换，供界面直接展示
     val redeemedCents: Int,
     val balance: Int,                    // 本周结余，可为负
     val complaintCount: Int,             // 本周生效的投诉次数
-    val complaintPenalty: Int            // 单次投诉扣分（来自 RuleConfig，供界面展示用）
+    val complaintPenalty: Int,           // 单次投诉扣分（来自 RuleConfig，供界面展示用）
+    val capMinutes: Int                  // 单周封顶分钟数（来自 RuleConfig，供界面展示用）
 )

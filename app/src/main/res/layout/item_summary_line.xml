@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  汇总卡片里的一行。左侧留出与表格首列同宽的占位，右侧留出与小计列同宽的占位，
+  这样"项目名 / 值"正好落在表格中部的格子区域内，与上方数据行对齐。
+  两个占位通过 ItemColumns.LABEL_WIDTH_DP / SCORE_WIDTH_DP 在代码里填宽。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:minHeight="28dp"
+    android:gravity="center_vertical">
+
+    <View
+        android:id="@+id/lineLeadSpacer"
+        android:layout_width="56dp"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/lineName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/lineValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="end"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <View
+        android:id="@+id/lineTailSpacer"
+        android:layout_width="56dp"
+        android:layout_height="match_parent" />
+</LinearLayout>

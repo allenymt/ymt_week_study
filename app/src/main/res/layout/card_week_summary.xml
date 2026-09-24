@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  周汇总卡片：对应纸质记录表下半部分。
+  各行的文案与数值由 SummaryBinder 生成后填进 summaryLines，避免在 XML 里写死数字。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:layout_marginTop="8dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
+    android:background="#FAFAFA">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="4dp"
+        android:paddingBottom="2dp"
+        android:text="本周汇总"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <!-- 汇总行容器。内容由 SummaryBinder.lines 逐行 inflate item_summary_line 填入。 -->
+    <LinearLayout
+        android:id="@+id/summaryLines"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <!-- 封顶提示。未封顶时由代码置为 GONE。 -->
+    <TextView
+        android:id="@+id/overflowHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="4dp"
+        android:paddingTop="4dp"
+        android:textSize="13sp"
+        android:textColor="#F57F17"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/examButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="录入考试" />
+
+    <TextView
+        android:id="@+id/examSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="4dp"
+        android:textSize="13sp"
+        android:textColor="#616161" />
+</LinearLayout>

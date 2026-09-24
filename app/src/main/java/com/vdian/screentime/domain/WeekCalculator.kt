@@ -49,10 +49,12 @@ object WeekCalculator {
             usedMinutes = meta.usedMinutes,
             overtimeMinutes = meta.overtimeMinutes,
             redeemedMinutes = meta.redeemedMinutes,
+            totalUsedMinutes = meta.usedMinutes + meta.overtimeMinutes + meta.redeemedMinutes,
             redeemedCents = meta.redeemedCents,
             balance = balance,
             complaintCount = ScoreRules.effectiveComplaintCount(days, cfg),
-            complaintPenalty = cfg.complaintPenalty
+            complaintPenalty = cfg.complaintPenalty,
+            capMinutes = cfg.weekCapMinutes
         )
     }
 }
