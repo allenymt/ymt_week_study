@@ -17,7 +17,9 @@ class ScreenTimeRepository(
     private val dayDao: DayDao,
     private val weekDao: WeekDao,
     private val examDao: ExamDao,
-    private val settingsStore: SettingsStore
+    private val settingsStore: SettingsStore,
+    /** 串行化单格子的"读-改-写"。可注入，便于单测替换。 */
+    private val cellLock: KeyedMutex = KeyedMutex()
 ) {
 
     fun observeWeek(weekStart: Long): Flow<WeekBoard> = combine(
@@ -37,27 +39,38 @@ class ScreenTimeRepository(
         board
     }
 
-    /** 孩子点击：把项加入待确认。已确认的项不受影响。 */
-    suspend fun toggleChildClaim(weekStart: Long, epochDay: Long, item: Item) {
-        val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } } ?: DayRecord(epochDay)
-        val items = current.items
-        val pending = ScoreRules.claim(item, items, current.pending)
-        saveDay(weekStart, current.copy(pending = pending))
-    }
+    /**
+     * 孩子点击：把项加入待确认。已确认的项不受影响。
+     *
+     * 读-改-写整段持 (epochDay, item) 锁，见 [cellLock] 的说明。
+     */
+    suspend fun toggleChildClaim(weekStart: Long, epochDay: Long, item: Item) =
+        cellLock.withLock(epochDay to item) {
+            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+                ?: DayRecord(epochDay)
+            val items = current.items
+            val pending = ScoreRules.claim(item, items, current.pending)
+            saveDay(weekStart, current.copy(pending = pending))
+        }
 
     /** 家长点击：确认待确认项 / 取消已确认项 / 直接确认空格。 */
-    suspend fun toggleParentConfirm(weekStart: Long, epochDay: Long, item: Item) {
-        val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } } ?: DayRecord(epochDay)
-        val (items, pending) = ScoreRules.advance(item, current.items, current.pending)
-        saveDay(weekStart, current.copy(items = items, pending = pending))
-    }
+    suspend fun toggleParentConfirm(weekStart: Long, epochDay: Long, item: Item) =
+        cellLock.withLock(epochDay to item) {
+            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+                ?: DayRecord(epochDay)
+            val (items, pending) = ScoreRules.advance(item, current.items, current.pending)
+            saveDay(weekStart, current.copy(items = items, pending = pending))
+        }
 
     /** 家长长按：退回孩子的申报。 */
-    suspend fun retractClaim(weekStart: Long, epochDay: Long, item: Item) {
-        val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } } ?: return
-        val pending = ScoreRules.retract(item, current.pending)
-        saveDay(weekStart, current.copy(pending = pending))
-    }
+    suspend fun retractClaim(weekStart: Long, epochDay: Long, item: Item) =
+        cellLock.withLock(epochDay to item) {
+            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+            if (current != null) {
+                val pending = ScoreRules.retract(item, current.pending)
+                saveDay(weekStart, current.copy(pending = pending))
+            }
+        }
 
     private suspend fun saveDay(weekStart: Long, day: DayRecord) {
         ensureWeekRow(weekStart)

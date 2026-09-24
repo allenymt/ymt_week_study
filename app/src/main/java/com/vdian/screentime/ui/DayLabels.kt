@@ -21,8 +21,15 @@ object DayLabels {
         Item.COMPLAINT -> "投诉"
     }
 
-    fun itemHeader(item: Item, cfg: RuleConfig): String =
-        "${itemName(item)}\n+${ScoreRules.itemPoints(item, cfg)}"
+    /**
+     * 表头文案：项名换行接分值。投诉的分值本就是负数（[ScoreRules.itemPoints] 返回
+     * `-complaintPenalty`），所以不能写死 "+" 前缀，否则渲染成 "投诉\n+-30"。
+     */
+    fun itemHeader(item: Item, cfg: RuleConfig): String {
+        val points = ScoreRules.itemPoints(item, cfg)
+        val signed = if (points >= 0) "+$points" else "$points"
+        return "${itemName(item)}\n$signed"
+    }
 
     fun formatDateRange(weekStart: Long): String =
         "${WeekDates.format(weekStart)} - ${WeekDates.format(weekStart + 6)}"

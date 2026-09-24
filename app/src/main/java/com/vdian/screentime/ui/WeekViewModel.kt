@@ -53,16 +53,24 @@ class WeekViewModel(private val repo: ScreenTimeRepository) : ViewModel() {
         observe()
     }
 
+    /**
+     * 三态动作一律在**派发时刻**捕获 [weekStart]。
+     * 若在协程体里读字段，用户点完立刻切周时，写入会落到切周后的那一周去。
+     * 仓库层另有按格子串行化，处理同帧连点。
+     */
     fun onChildTap(epochDay: Long, item: Item) {
-        viewModelScope.launch { repo.toggleChildClaim(weekStart, epochDay, item) }
+        val week = weekStart
+        viewModelScope.launch { repo.toggleChildClaim(week, epochDay, item) }
     }
 
     fun onParentTap(epochDay: Long, item: Item) {
-        viewModelScope.launch { repo.toggleParentConfirm(weekStart, epochDay, item) }
+        val week = weekStart
+        viewModelScope.launch { repo.toggleParentConfirm(week, epochDay, item) }
     }
 
     fun onParentLongPress(epochDay: Long, item: Item) {
-        viewModelScope.launch { repo.retractClaim(weekStart, epochDay, item) }
+        val week = weekStart
+        viewModelScope.launch { repo.retractClaim(week, epochDay, item) }
     }
 
     fun currentWeekStart(): Long = weekStart

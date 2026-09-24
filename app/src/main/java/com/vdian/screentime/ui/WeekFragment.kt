@@ -8,7 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.vdian.screentime.databinding.FragmentWeekBinding
-import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.RuleConfig
 
 /**
  * 本周表格：7 天 × 6 项的可点格子，对应纸质记录表。
@@ -36,7 +36,7 @@ class WeekFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = WeekRowAdapter(
-            items = ROW_ITEMS,
+            items = ItemColumns.ROW_ITEMS,
             childMode = { vm.childMode.value == true },
             onChildTap = { day, item -> vm.onChildTap(day, item) },
             onParentTap = { day, item -> vm.onParentTap(day, item) },
@@ -53,6 +53,7 @@ class WeekFragment : Fragment() {
 
         vm.board.observe(viewLifecycleOwner) { board ->
             binding.weekTitle.text = DayLabels.formatDateRange(board.weekStart)
+            renderHeader(board.config)
             adapter.submit(board.days, board.summary.dailyScores)
         }
     }
@@ -62,11 +63,18 @@ class WeekFragment : Fragment() {
         _binding = null
     }
 
-    private companion object {
-        /** 表格列顺序，与纸质记录表一致。 */
-        val ROW_ITEMS = listOf(
-            Item.RAISED, Item.NEAT_WRITING, Item.ENGLISH,
-            Item.READING, Item.EXERCISE, Item.COMPLAINT
-        )
+    /**
+     * 画列标题行。两侧用与数据行同宽的占位，中间的格子走 [ItemColumns]，
+     * 这样表头与数据行的列宽、列序都锁在一起。
+     */
+    private fun renderHeader(cfg: RuleConfig) {
+        val ctx = requireContext()
+        val row = binding.headerRow
+        row.removeAllViews()
+        row.addView(ItemColumns.spacer(ctx, ItemColumns.LABEL_WIDTH_DP))
+        ItemColumns.ROW_ITEMS.forEach { item ->
+            row.addView(ItemColumns.headerCell(ctx, DayLabels.itemHeader(item, cfg)))
+        }
+        row.addView(ItemColumns.spacer(ctx, ItemColumns.SCORE_WIDTH_DP))
     }
 }
