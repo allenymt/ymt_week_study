@@ -29,6 +29,28 @@ android {
             includeAndroidResources = true
         }
     }
+
+    signingConfigs {
+        release {
+            storeFile file("../screentime-release.jks")
+            storePassword "screentime2026"
+            keyAlias "screentime"
+            keyPassword "screentime2026"
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.release
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+            zipAlignEnabled true
+        }
+    }
 }
 
 dependencies {
