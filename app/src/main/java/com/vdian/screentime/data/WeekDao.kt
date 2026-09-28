@@ -22,6 +22,10 @@ interface WeekDao {
     @Query("SELECT * FROM week_meta ORDER BY weekStart ASC")
     suspend fun all(): List<WeekEntity>
 
+    /** 银行页要按历史累计兑换求和，需要全部周行并随写入实时更新。 */
+    @Query("SELECT * FROM week_meta ORDER BY weekStart ASC")
+    fun observeAll(): Flow<List<WeekEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: WeekEntity)
 

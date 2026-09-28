@@ -40,6 +40,19 @@ class ScreenTimeRepository(
     }
 
     /**
+     * 银行页的数据源：当前周视图 + 全部历史周行，聚合成 [BankRollup]。
+     *
+     * 取 [WeekEntity] 原始行而不是逐周再造 [WeekBoard]，是因为累计已兑换只是历史事实的求和，
+     * 再算一遍各周结余既慢又容易和 [observeWeek] 的口径产生偏差。
+     */
+    fun observeBankRollup(weekStart: Long): Flow<BankRollup> = combine(
+        observeWeek(weekStart),
+        weekDao.observeAll()
+    ) { board, allWeeks ->
+        BankRollupAggregator.build(latest = board, allWeeks = allWeeks)
+    }
+
+    /**
      * 孩子点击：把项加入待确认。已确认的项不受影响。
      *
      * 读-改-写整段持 (epochDay, item) 锁，见 [cellLock] 的说明。

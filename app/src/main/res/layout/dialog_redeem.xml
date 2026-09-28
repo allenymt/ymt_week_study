@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  兑换对话框。分钟数用 NumberPicker，选项按兑换单位生成（见 BankFragment），
+  这样在 API 21 上也能保证"步长 = 一个兑换单位"，不依赖 NumberPicker 的 setMinValue 步进。
+  金额预览与仓库层走同一套纯函数，避免两处规则漂移。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="兑换屏幕时间"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/redeemHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:textSize="13sp" />
+
+    <NumberPicker
+        android:id="@+id/redeemPicker"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_gravity="center_horizontal" />
+
+    <TextView
+        android:id="@+id/redeemPreview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingTop="8dp"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
