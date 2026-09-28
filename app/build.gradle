@@ -22,6 +22,13 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    testOptions {
+        unitTests {
+            // DataExporter 用的是 android 自带的 org.json，纯 JVM 单测取不到实现，
+            // 需要 Robolectric 把 android 运行时带上。
+            includeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -40,4 +47,5 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     testImplementation 'junit:junit:4.12'
+    testImplementation 'org.robolectric:robolectric:4.8.1'
 }

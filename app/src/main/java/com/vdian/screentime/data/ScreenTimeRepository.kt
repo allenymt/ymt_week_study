@@ -9,6 +9,7 @@ import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.ScoreRules
 import com.vdian.screentime.domain.Subject
 import com.vdian.screentime.domain.WeekDates
+import com.vdian.screentime.domain.WeekMeta
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -160,4 +161,31 @@ class ScreenTimeRepository(
     /** 生成一周的空白 7 天记录，便于界面直接渲染。 */
     fun blankWeek(weekStart: Long): List<DayRecord> =
         (0L..6L).map { DayRecord(weekStart + it) }
+
+    // ---- 设置页用：全量读取、导出与清空 ------------------------------------
+
+    /** 全部日记录，按天升序。 */
+    suspend fun allDays(): List<DayRecord> = dayDao.all().map { Mappers.run { it.toDomain() } }
+
+    /** 全部周记录，按周升序。 */
+    suspend fun allWeeks(): List<WeekMeta> = weekDao.all().map { Mappers.run { it.toDomain() } }
+
+    /** 全部考试记录，按周、id 升序。 */
+    suspend fun allExams(): List<ExamRecord> = examDao.all().map { Mappers.run { it.toDomain() } }
+
+    /** 当前生效的规则参数。导出时要把它一并写出去，否则记录无法解读。 */
+    suspend fun currentConfig(): RuleConfig = settingsStore.observeConfig().first()
+
+    suspend fun childName(): String = settingsStore.observeChildName().first()
+
+    /**
+     * 清空三张记录表。
+     *
+     * 规则参数与孩子姓名属于设置，不在这里删 —— "清空记录"再把分值改回默认值会很意外。
+     */
+    suspend fun clearAllData() {
+        dayDao.deleteAll()
+        weekDao.deleteAll()
+        examDao.deleteAll()
+    }
 }
