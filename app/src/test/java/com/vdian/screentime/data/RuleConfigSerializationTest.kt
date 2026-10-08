@@ -14,6 +14,7 @@ class RuleConfigSerializationTest {
             englishPoints = 12,
             readingPoints = 25,
             exercisePoints = 8,
+            praisePoints = 11,
             complaintPenalty = 40,
             complaintMaxPerWeek = 3,
             baseMinutes = 90,
@@ -57,7 +58,7 @@ class RuleConfigSerializationTest {
     @Test
     fun encode_covers_every_field_so_nothing_is_silently_dropped() {
         val encoded = RuleConfigCodec.encode(RuleConfig())
-        // 21 个可配置项，少一个都说明新增字段时忘记加进编解码
-        assertEquals(21, encoded.size)
+        // 22 个可配置项，少一个都说明新增字段时忘记加进编解码
+        assertEquals(22, encoded.size)
     }
 }

@@ -93,6 +93,7 @@ class SettingsFragment : Fragment() {
             "englishPoints" to cfgEnglishPoints,
             "readingPoints" to cfgReadingPoints,
             "exercisePoints" to cfgExercisePoints,
+            "praisePoints" to cfgPraisePoints,
             "complaintPenalty" to cfgComplaintPenalty,
             "complaintMaxPerWeek" to cfgComplaintMaxPerWeek,
             "baseMinutes" to cfgBaseMinutes,

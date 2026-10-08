@@ -7,6 +7,7 @@ data class RuleConfig(
     val englishPoints: Int = 10,
     val readingPoints: Int = 15,
     val exercisePoints: Int = 15,
+    val praisePoints: Int = 10,
     val complaintPenalty: Int = 30,
     val complaintMaxPerWeek: Int = 2,
     val baseMinutes: Int = 60,

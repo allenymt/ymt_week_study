@@ -18,7 +18,7 @@ object ItemColumns {
     /** 列顺序，与纸质记录表一致。 */
     val ROW_ITEMS: List<Item> = listOf(
         Item.RAISED, Item.NEAT_WRITING, Item.ENGLISH,
-        Item.READING, Item.EXERCISE, Item.COMPLAINT
+        Item.READING, Item.EXERCISE, Item.PRAISE, Item.COMPLAINT
     )
 
     /** 行首星期标签 / 行尾当日小计的宽度，表头用同宽占位才能对齐。 */

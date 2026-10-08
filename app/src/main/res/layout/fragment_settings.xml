@@ -172,6 +172,29 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="3"
+                android:text="老师表扬（默认 10）"
+                android:textSize="15sp" />
+
+            <EditText
+                android:id="@+id/cfgPraisePoints"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:gravity="end"
+                android:inputType="number"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
                 android:text="投诉扣分（默认 30）"
                 android:textSize="15sp" />
 

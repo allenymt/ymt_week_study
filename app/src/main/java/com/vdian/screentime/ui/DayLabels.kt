@@ -18,6 +18,7 @@ object DayLabels {
         Item.ENGLISH -> "主动英语"
         Item.READING -> "主动阅读"
         Item.EXERCISE -> "主动运动"
+        Item.PRAISE -> "老师表扬"
         Item.COMPLAINT -> "投诉"
     }
 
