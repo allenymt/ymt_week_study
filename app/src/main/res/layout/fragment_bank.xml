@@ -204,5 +204,25 @@
             android:gravity="center"
             android:textSize="13sp" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/bankSavingAddButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="存入" />
+
+            <Button
+                android:id="@+id/bankSavingDeductButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="扣减" />
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

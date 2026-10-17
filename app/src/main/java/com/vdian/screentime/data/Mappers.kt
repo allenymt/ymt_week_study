@@ -28,6 +28,7 @@ object Mappers {
         overtimeMinutes = overtimeMinutes,
         redeemedMinutes = redeemedMinutes,
         redeemedCents = redeemedCents,
+        savingAdjustCents = savingAdjustCents,
         noteGood = noteGood,
         noteImprove = noteImprove
     )
@@ -44,6 +45,7 @@ object Mappers {
         redeemedCents = redeemedCents,
         prevBankMinutes = prevBankMinutes,
         prevSavingCents = prevSavingCents,
+        savingAdjustCents = savingAdjustCents,
         noteGood = noteGood,
         noteImprove = noteImprove
     )

@@ -12,7 +12,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(150, r.bankBalanceMinutes)
         assertEquals(0, r.bankOverflow)
@@ -23,7 +24,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 400, prevSavingCents = 0,
             weekBalanceMinutes = 200, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(480, r.bankBalanceMinutes)
         assertEquals(120, r.bankOverflow)     // 600 - 480
@@ -34,7 +36,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(0, r.bankOverflow)
     }
@@ -44,7 +47,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = -300, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(0, r.bankBalanceMinutes)   // 100 - 300 -> 夹到 0
         assertEquals(0, r.bankOverflow)
@@ -55,7 +59,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 480, prevSavingCents = 0,
             weekBalanceMinutes = 60, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(480, r.bankBalanceMinutes)
         assertEquals(60, r.bankOverflow)
@@ -108,13 +113,47 @@ class BankCalculatorTest {
     }
 
     @Test
-    fun saving_caps_at_50_yuan() {
+    fun saving_caps_at_100_yuan() {
         val r = BankCalculator.compute(
-            prevBankMinutes = 0, prevSavingCents = 4800,
+            prevBankMinutes = 0, prevSavingCents = 9800,
             weekBalanceMinutes = 0, redeemedMinutesThisWeek = 30,
-            redeemedCentsThisWeek = 200, cfg = cfg
+            redeemedCentsThisWeek = 200,
+            savingAdjustCents = 0, cfg = cfg
         )
-        assertEquals(5000, r.savingCents)     // 4800 + 200 -> 夹到 5000
+        assertEquals(10000, r.savingCents)     // 9800 + 200 -> 夹到 10000
+    }
+
+    @Test
+    fun manual_saving_credit_is_added_on_top_of_redemptions() {
+        val r = BankCalculator.compute(
+            prevBankMinutes = 0, prevSavingCents = 1000,
+            weekBalanceMinutes = 0, redeemedMinutesThisWeek = 0,
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 500, cfg = cfg
+        )
+        assertEquals(1500, r.savingCents)
+    }
+
+    @Test
+    fun manual_saving_deduction_reduces_but_never_below_zero() {
+        val r = BankCalculator.compute(
+            prevBankMinutes = 0, prevSavingCents = 300,
+            weekBalanceMinutes = 0, redeemedMinutesThisWeek = 0,
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = -500, cfg = cfg
+        )
+        assertEquals(0, r.savingCents)
+    }
+
+    @Test
+    fun saving_plus_adjustment_still_caps_at_100_yuan() {
+        val r = BankCalculator.compute(
+            prevBankMinutes = 0, prevSavingCents = 9500,
+            weekBalanceMinutes = 0, redeemedMinutesThisWeek = 0,
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 1000, cfg = cfg
+        )
+        assertEquals(10000, r.savingCents)
     }
 
     @Test
@@ -123,7 +162,8 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 0, prevSavingCents = 1000,
             weekBalanceMinutes = -200, redeemedMinutesThisWeek = 0,
-            redeemedCentsThisWeek = 0, cfg = cfg
+            redeemedCentsThisWeek = 0,
+            savingAdjustCents = 0, cfg = cfg
         )
         assertEquals(1000, r.savingCents)
     }

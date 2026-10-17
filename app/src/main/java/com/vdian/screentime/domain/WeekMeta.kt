@@ -6,6 +6,8 @@ data class WeekMeta(
     val overtimeMinutes: Int = 0,
     val redeemedMinutes: Int = 0,
     val redeemedCents: Int = 0,
+    /** 人工存入（正）/ 扣减（负）的存钱金额。 */
+    val savingAdjustCents: Int = 0,
     val noteGood: String = "",
     val noteImprove: String = ""
 )

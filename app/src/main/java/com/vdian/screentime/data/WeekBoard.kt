@@ -34,6 +34,7 @@ data class WeekBoard(
             weekBalanceMinutes = summary.balance,
             redeemedMinutesThisWeek = meta.redeemedMinutes,
             redeemedCentsThisWeek = meta.redeemedCents,
+            savingAdjustCents = meta.savingAdjustCents,
             cfg = config
         )
     }

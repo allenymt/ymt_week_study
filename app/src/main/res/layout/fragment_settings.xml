@@ -376,6 +376,29 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="3"
+                android:text="记录使用时长的步长/分钟（默认 15）"
+                android:textSize="15sp" />
+
+            <EditText
+                android:id="@+id/cfgUsageStepMinutes"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:gravity="end"
+                android:inputType="number"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
                 android:text="一个兑换单位折合的分（默认 200）"
                 android:textSize="15sp" />
 
@@ -422,7 +445,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="3"
-                android:text="存钱累计上限/分（默认 5000）"
+                android:text="存钱累计上限/分（默认 10000）"
                 android:textSize="15sp" />
 
             <EditText

@@ -25,6 +25,7 @@ class RuleConfigSerializationTest {
             redeemUnitCents = 500,
             weeklyRedeemCapCents = 2000,
             savingCapCents = 10000,
+            usageStepMinutes = 15,
             englishMidMin = 80,
             englishHighMin = 95,
             englishMidBonus = 20,
@@ -58,7 +59,7 @@ class RuleConfigSerializationTest {
     @Test
     fun encode_covers_every_field_so_nothing_is_silently_dropped() {
         val encoded = RuleConfigCodec.encode(RuleConfig())
-        // 22 个可配置项，少一个都说明新增字段时忘记加进编解码
-        assertEquals(22, encoded.size)
+        // 23 个可配置项，少一个都说明新增字段时忘记加进编解码
+        assertEquals(23, encoded.size)
     }
 }

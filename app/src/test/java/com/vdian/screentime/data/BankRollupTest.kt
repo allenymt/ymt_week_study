@@ -58,18 +58,18 @@ class BankRollupTest {
 
     @Test
     fun cash_available_is_capped_while_total_redeemed_keeps_climbing() {
-        // 逐周兑换累计 60 元 > 存钱上限 50 元：两者必须保持为不同量。
+        // 逐周兑换累计 120 元 > 存钱上限 100 元：两者必须保持为不同量。
         val weeks = List(20) { i ->
-            WeekEntity(weekStart = i * 7L, redeemedMinutes = 150, redeemedCents = 300)
+            WeekEntity(weekStart = i * 7L, redeemedMinutes = 150, redeemedCents = 600)
         }
         val latest = board(
             weekStart = 200,
-            prevSavingCents = 5000
+            prevSavingCents = 10000
         )
         val r = BankRollupAggregator.build(latest, weeks)
 
-        assertEquals(6000, r.totalRedeemedCents)    // 历史事实，不封顶
-        assertEquals(5000, r.cashAvailableCents)    // 夹在 savingCapCents
+        assertEquals(12000, r.totalRedeemedCents)    // 历史事实，不封顶
+        assertEquals(10000, r.cashAvailableCents)    // 夹在 savingCapCents
     }
 
     @Test

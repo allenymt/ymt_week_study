@@ -36,12 +36,17 @@ object BankCalculator {
         weekBalanceMinutes: Int,
         redeemedMinutesThisWeek: Int,
         redeemedCentsThisWeek: Int,
+        savingAdjustCents: Int,
         cfg: RuleConfig
     ): BankResult {
         val accumulated = prevBankMinutes + weekBalanceMinutes
         val bank = min(max(0, accumulated), cfg.bankCapMinutes)
         val overflow = max(0, accumulated - cfg.bankCapMinutes)
-        val saving = min(prevSavingCents + redeemedCentsThisWeek, cfg.savingCapCents)
+        // 人工存入/扣减叠加在兑换所得之上，再一起夹到上限；扣减后不得为负。
+        val saving = min(
+            max(0, prevSavingCents + redeemedCentsThisWeek + savingAdjustCents),
+            cfg.savingCapCents
+        )
         val redeemableMinutes = maxRedeemableMinutes(
             weekBalanceMinutes, redeemedMinutesThisWeek, redeemedCentsThisWeek, cfg
         )

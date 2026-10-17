@@ -54,6 +54,12 @@ class BankViewModel(private val repo: ScreenTimeRepository) : ViewModel() {
         viewModelScope.launch { repo.applyOvertime(week, minutes) }
     }
 
+    /** 人工存入（正）/ 扣减（负）存钱金额，单位为分。 */
+    fun adjustSaving(deltaCents: Int) {
+        val week = weekStart
+        viewModelScope.launch { repo.adjustSaving(week, deltaCents) }
+    }
+
     private fun todayEpochDay(): Long = WeekViewModel.CURRENT_EPOCH_DAY_FN()
 
     companion object {

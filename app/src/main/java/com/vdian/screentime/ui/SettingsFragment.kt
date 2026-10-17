@@ -101,6 +101,7 @@ class SettingsFragment : Fragment() {
             "weekCapMinutes" to cfgWeekCapMinutes,
             "bankCapMinutes" to cfgBankCapMinutes,
             "redeemUnitMinutes" to cfgRedeemUnitMinutes,
+            "usageStepMinutes" to cfgUsageStepMinutes,
             "redeemUnitCents" to cfgRedeemUnitCents,
             "weeklyRedeemCapCents" to cfgWeeklyRedeemCapCents,
             "savingCapCents" to cfgSavingCapCents,

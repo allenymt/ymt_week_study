@@ -133,6 +133,22 @@ class ScreenTimeRepository(
         weekDao.upsert(row.copy(noteGood = good, noteImprove = improve))
     }
 
+    /**
+     * 人工存入（正）/ 扣减（负）存钱金额。
+     *
+     * 扣减不能把存钱累计压到 0 以下，所以先按当前可用金额夹一次再写，
+     * 避免负数落库后影响后续周的结算。
+     */
+    suspend fun adjustSaving(weekStart: Long, deltaCents: Int) {
+        if (deltaCents == 0) return
+        val board = observeWeek(weekStart).first()
+        val available = board.bank.savingCents
+        val applied = if (deltaCents < 0) deltaCents.coerceAtLeast(-available) else deltaCents
+        if (applied == 0) return
+        val row = ensureWeekRow(weekStart)
+        weekDao.upsert(row.copy(savingAdjustCents = row.savingAdjustCents + applied))
+    }
+
     /** 取该周记录行；不存在则创建，并把上周的银行与存钱结算结果固化进来。 */
     private suspend fun ensureWeekRow(weekStart: Long): WeekEntity {
         weekDao.get(weekStart)?.let { return it }

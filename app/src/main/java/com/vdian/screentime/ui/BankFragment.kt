@@ -45,6 +45,8 @@ class BankFragment : Fragment() {
         binding.bankRedeemButton.setOnClickListener { showRedeemDialog() }
         binding.bankRecordUsageButton.setOnClickListener { showMinutesDialog("记录使用时长") { vm.recordUsage(it) } }
         binding.bankRecordOvertimeButton.setOnClickListener { showMinutesDialog("超时扣减") { vm.recordOvertime(it) } }
+        binding.bankSavingAddButton.setOnClickListener { showSavingDialog(isAdd = true) }
+        binding.bankSavingDeductButton.setOnClickListener { showSavingDialog(isAdd = false) }
 
         vm.rollup.observe(viewLifecycleOwner) { renderRollup(it) }
         vm.board.observe(viewLifecycleOwner) { board ->
@@ -120,11 +122,11 @@ class BankFragment : Fragment() {
             .show()
     }
 
-    /** "记录使用时长 / 超时扣减"共用的分钟输入对话框。 */
+    /** "记录使用时长 / 超时扣减"共用的分钟输入对话框。步长取自规则参数，默认 15 分钟。 */
     private fun showMinutesDialog(title: String, onConfirm: (Int) -> Unit) {
         val board = lastBoard ?: return
-        val step = board.config.redeemUnitMinutes
-        val values = (0..6).map { it * step }      // 0 ~ 6 个单位，够日常录入
+        val step = board.config.usageStepMinutes
+        val values = (0..12).map { it * step }    // 0 ~ 12 个单位，够日常录入
 
         val picker = NumberPicker(requireContext()).apply {
             minValue = 0
@@ -137,6 +139,45 @@ class BankFragment : Fragment() {
             .setTitle(title)
             .setView(picker)
             .setPositiveButton("确定") { _, _ -> onConfirm(values[picker.value]) }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /**
+     * 存钱的人工存入 / 扣减。选项以 1 元为步长；扣减最多到当前可用金额，
+     * 仓库层还会再夹一次，界面传多了也不会把余额扣成负数。
+     */
+    private fun showSavingDialog(isAdd: Boolean) {
+        val board = lastBoard ?: return
+        val available = vm.rollup.value?.cashAvailableCents ?: 0
+        val capYuan = board.config.savingCapCents / 100
+        // 存入时最多补到上限；扣减时最多扣掉当前可用金额。
+        val maxYuan = if (isAdd) {
+            ((board.config.savingCapCents - available) / 100).coerceAtLeast(0)
+        } else {
+            (available / 100).coerceAtLeast(0)
+        }
+        if (maxYuan <= 0) {
+            val msg = if (isAdd) "已达存钱上限（$capYuan 元）" else "暂无可扣减的存钱"
+            android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val values = (1..maxYuan).toList()
+        val picker = NumberPicker(requireContext()).apply {
+            minValue = 0
+            maxValue = values.size - 1
+            displayedValues = values.map { "$it 元" }.toTypedArray()
+            wrapSelectorWheel = false
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(if (isAdd) "存入存钱" else "扣减存钱")
+            .setView(picker)
+            .setPositiveButton("确定") { _, _ ->
+                val yuan = values[picker.value]
+                vm.adjustSaving(if (isAdd) yuan * 100 else -yuan * 100)
+            }
             .setNegativeButton("取消", null)
             .show()
     }
