@@ -18,11 +18,7 @@ data class WeekEntity(
     val redeemedCents: Int = 0,
     val prevBankMinutes: Int = 0,
     val prevSavingCents: Int = 0,
-    val prevBankMinutes: Int = 0,
-    val prevSavingCents: Int = 0,
     val savingAdjustCents: Int = 0,
-    val noteGood: String = "",
-    val noteImprove: String = ""
     val noteGood: String = "",
     val noteImprove: String = ""
 )

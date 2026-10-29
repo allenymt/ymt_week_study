@@ -148,6 +148,7 @@ class ScreenTimeRepository(
         val row = ensureWeekRow(weekStart)
         weekDao.upsert(row.copy(savingAdjustCents = row.savingAdjustCents + applied))
     }
+
     /** 取该周记录行；不存在则创建，并把上周的银行与存钱结算结果固化进来。 */
     private suspend fun ensureWeekRow(weekStart: Long): WeekEntity {
         weekDao.get(weekStart)?.let { return it }
@@ -176,6 +177,7 @@ class ScreenTimeRepository(
     /** 生成一周的空白 7 天记录，便于界面直接渲染。 */
     fun blankWeek(weekStart: Long): List<DayRecord> =
         (0L..6L).map { DayRecord(weekStart + it) }
+
     // ---- 设置页用：全量读取、导出与清空 ------------------------------------
 
     /** 全部日记录，按天升序。 */

@@ -7,9 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.vdian.screentime.data.ScreenTimeRepository
 import com.vdian.screentime.data.WeekBoard
 import com.vdian.screentime.domain.Item
-import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.Subject
-import com.vdian.screentime.domain.WeekDates
 import com.vdian.screentime.domain.WeekDates
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -90,7 +88,6 @@ class WeekViewModel(private val repo: ScreenTimeRepository) : ViewModel() {
     fun saveNotes(good: String, improve: String) {
         val week = weekStart
         viewModelScope.launch { repo.saveNotes(week, good, improve) }
-    }
     }
 
     fun currentWeekStart(): Long = weekStart

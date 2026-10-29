@@ -7,10 +7,6 @@ enum class Item {
     ENGLISH,       // 主动英语
     READING,       // 主动阅读
     EXERCISE,      // 主动运动
-    ENGLISH,       // 主动英语
-    READING,       // 主动阅读
-    EXERCISE,      // 主动运动
     PRAISE,        // 受到老师表扬
-    COMPLAINT      // 投诉
     COMPLAINT      // 投诉
 }

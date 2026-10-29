@@ -17,9 +17,6 @@ data class WeekSummary(
     val usedMinutes: Int,
     val overtimeMinutes: Int,
     val redeemedMinutes: Int,
-    val usedMinutes: Int,
-    val overtimeMinutes: Int,
-    val redeemedMinutes: Int,
     val totalUsedMinutes: Int,           // 本周已使用 = 已用 + 超时 + 已兑换，供界面直接展示
     val redeemedCents: Int,
     val balance: Int,                    // 本周结余，可为负

@@ -1,12 +1,8 @@
 package com.vdian.screentime.ui
 
 import android.graphics.Color
-import android.graphics.Color
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.vdian.screentime.databinding.ItemWeekRowBinding
@@ -69,16 +65,7 @@ class WeekRowAdapter(
 
         init {
             items.forEach { _ ->
-                val ctx = binding.root.context
-                val tv = ItemColumns.cell(ctx).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.MATCH_PARENT, 1f
-                    ).apply {
-                        val gap = (2 * ctx.resources.displayMetrics.density).toInt()
-                        setMargins(gap, gap, gap, gap)
-                    }
-                    gravity = Gravity.CENTER
-                }
+                val tv = ItemColumns.cell(binding.root.context)
                 binding.cellContainer.addView(tv)
                 cells.add(tv)
             }

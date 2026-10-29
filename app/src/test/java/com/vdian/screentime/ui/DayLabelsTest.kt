@@ -36,6 +36,7 @@ class DayLabelsTest {
         assertEquals("", DayLabels.weekdayName(7))
         assertEquals("", DayLabels.weekdayName(-1))
     }
+
     @Test
     fun header_shows_item_name_and_points() {
         val cfg = RuleConfig()
