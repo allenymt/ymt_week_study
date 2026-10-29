@@ -1,7 +1,9 @@
 package com.vdian.screentime.data
 
 import com.vdian.screentime.data.entity.WeekEntity
+import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.ExamRecord
+import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.Subject
@@ -114,5 +116,100 @@ class BankCarryTest {
     @Test
     fun replay_of_empty_list_is_empty() {
         assertEquals(emptyList<WeekEntity>(), BankCarry.replay(emptyList(), emptyMap(), emptyMap(), cfg, catalog))
+    }
+
+    // ---- 2c：银行余额完全派生 ------------------------------------------------
+
+    private fun openings(rows: List<WeekEntity>) = rows.map { it.prevBankMinutes }
+
+    private fun replay(
+        rows: List<WeekEntity>,
+        days: Map<Long, List<DayRecord>> = emptyMap(),
+        exams: Map<Long, List<ExamRecord>> = emptyMap(),
+        config: RuleConfig = cfg,
+        items: ItemCatalog = catalog
+    ) = BankCarry.replay(rows, days, exams, config, items)
+
+    @Test
+    fun backfill_week1_plus_30_shifts_later_openings_by_30() {
+        val rows = correctChain()
+        val before = replay(rows)
+        assertEquals(listOf(0, 100, 150), openings(before))
+        // 补记第 1 周：英语 95 分，考试奖励 +30
+        val after = replay(before, exams = mapOf(w1 to listOf(ExamRecord(Subject.ENGLISH, 95))))
+        assertEquals(listOf(0, 130, 180), openings(after))
+        // 只动期初，其余字段不变
+        assertEquals(before.map { it.copy(prevBankMinutes = 0) }, after.map { it.copy(prevBankMinutes = 0) })
+    }
+
+    @Test
+    fun backfill_plus_30_is_absorbed_by_bank_cap_480() {
+        // 每周 +120：期初 0,120,240,360,480(封顶)
+        val rows = (0 until 5).map { WeekEntity(weekStart = it * 7L) }
+        assertEquals(listOf(0, 120, 240, 360, 480), openings(replay(rows)))
+        val after = replay(rows, exams = mapOf(w1 to listOf(ExamRecord(Subject.ENGLISH, 95))))
+        // 第 2~4 周期初 +30；第 5 周已封顶，仍为 480
+        assertEquals(listOf(0, 150, 270, 390, 480), openings(after))
+    }
+
+    @Test
+    fun item_points_change_shifts_whole_chain() {
+        // 第 1 周有 3 天"举手回答"
+        val days = mapOf(w1 to (0L..2L).map { DayRecord(it, items = setOf(Item.RAISED)) })
+        val rows = correctChain()
+        assertEquals(listOf(0, 130, 180), openings(replay(rows, days)))
+        // 分值 10 → 20：第 1 周多 30，之后各周期初随之 +30
+        val doubled = ItemCatalog.builtin(mapOf("raisePoints" to 20))
+        assertEquals(listOf(0, 160, 210), openings(replay(rows, days, items = doubled)))
+    }
+
+    @Test
+    fun rule_config_change_shifts_whole_chain() {
+        val rows = correctChain()
+        // 保底 60 → 90：每周多 30，累积到后面各周
+        val after = replay(rows, config = cfg.copy(baseMinutes = 90))
+        assertEquals(listOf(0, 130, 210), openings(after))
+    }
+
+    @Test
+    fun single_row_chain_opening_is_zero() {
+        val row = WeekEntity(weekStart = w2, usedMinutes = 70, prevBankMinutes = 123, prevSavingCents = 456)
+        assertEquals(listOf(row.copy(prevBankMinutes = 0, prevSavingCents = 0)), replay(listOf(row)))
+    }
+
+    @Test
+    fun negative_week_balance_clamps_bank_to_zero() {
+        val rows = listOf(
+            WeekEntity(weekStart = w1, usedMinutes = 20),     // +100
+            WeekEntity(weekStart = w2, usedMinutes = 300),    // -180：100-180 → 夹 0
+            WeekEntity(weekStart = w3)
+        )
+        assertEquals(listOf(0, 100, 0), openings(replay(rows)))
+        // 第一周就为负也夹 0
+        val first = listOf(WeekEntity(weekStart = w1, usedMinutes = 200), WeekEntity(weekStart = w2))
+        assertEquals(listOf(0, 0), openings(replay(first)))
+    }
+
+    @Test
+    fun accumulation_beyond_480_stays_capped() {
+        val rows = (0 until 7).map { WeekEntity(weekStart = it * 7L) }
+        assertEquals(listOf(0, 120, 240, 360, 480, 480, 480), openings(replay(rows)))
+        // 封顶之后有一周花掉 100，下一周从 380 起而不是从"超额累计"起
+        val spent = rows.toMutableList().also { it[4] = it[4].copy(usedMinutes = 220) }
+        assertEquals(listOf(0, 120, 240, 360, 480, 380, 480), openings(replay(spent)))
+    }
+
+    @Test
+    fun saving_adjust_and_redeemed_cents_carry_forward() {
+        val rows = listOf(
+            WeekEntity(weekStart = w1, savingAdjustCents = 200),
+            WeekEntity(weekStart = w2, savingAdjustCents = -50, redeemedMinutes = 30, redeemedCents = 200),
+            WeekEntity(weekStart = w3, savingAdjustCents = -1000),
+            WeekEntity(weekStart = 21L)
+        )
+        val replayed = replay(rows)
+        assertEquals(listOf(0, 200, 350, 0), replayed.map { it.prevSavingCents })
+        // 兑换的 30 分钟从第 2 周结余里扣：120+90
+        assertEquals(listOf(0, 120, 210, 330), openings(replayed))
     }
 }

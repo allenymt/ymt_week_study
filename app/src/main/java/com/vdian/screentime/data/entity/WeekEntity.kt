@@ -5,8 +5,8 @@ import androidx.room.PrimaryKey
 
 /**
  * 一周的使用与兑换事实。
- * @param prevBankMinutes     上周银行结余（冗余存储，避免回溯计算全部历史）
- * @param prevSavingCents     上周存钱累计（同上）
+ * @param prevBankMinutes     本周期初银行结余（= 上一周行的期末）。仅为缓存：真值由全部历史推导，任何影响历史的写入后由仓库重放刷新
+ * @param prevSavingCents     本周期初存钱累计（同上，缓存）
  * @param savingAdjustCents   人工存入/扣减的存钱金额（正=增加，负=扣减），叠加在兑换所得之上
  */
 @Entity(tableName = "week_meta")

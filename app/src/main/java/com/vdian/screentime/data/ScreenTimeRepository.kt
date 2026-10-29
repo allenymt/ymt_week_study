@@ -34,6 +34,17 @@ class ScreenTimeRepository(
     private val dayLock: KeyedMutex = KeyedMutex()
 ) {
 
+    /**
+     * 全局周锁：串行化所有对 `week_meta` 的"读-改-写"与银行链重放。
+     *
+     * 锁顺序（固定，不得反向）：`dayLock` → `repairLock` → `weekLock` → `seedLock`。
+     * - 持 `weekLock` 时绝不再取 `dayLock` / `repairLock`，也绝不再取 `weekLock`（Mutex 不可重入）：
+     *   因此锁内只调用带 `Locked` 后缀的私有助手，它们假定调用方已持锁、自身不取锁、
+     *   也不调用 [repairBankCarry] / [observeWeek]。
+     * - `itemDefLock` 与 `weekLock` 从不嵌套：目录写完、放锁之后才重放。
+     */
+    private val weekLock = Mutex()
+
     /** 种子写入只做一次：进程内标记 + 互斥锁防止并发重复写入（insert 本身也是 IGNORE）。 */
     private val seedLock = Mutex()
 
@@ -72,11 +83,13 @@ class ScreenTimeRepository(
     suspend fun upsertItemDef(def: ItemDef) {
         ensureItemDefs()
         itemDefLock.withLock { itemDefDao.upsert(Mappers.run { def.toEntity() }) }
+        recomputeBankChain()
     }
 
     suspend fun setItemEnabled(item: Item, enabled: Boolean) {
         ensureItemDefs()
         itemDefLock.withLock { itemDefDao.setEnabled(item.key, enabled) }
+        recomputeBankChain()
     }
 
     /** 与相邻项交换顺序；已在边界则不动。 */
@@ -86,12 +99,13 @@ class ScreenTimeRepository(
             val updated = ItemDefSeed.move(itemDefDao.all(), item, up)
             if (updated.isNotEmpty()) itemDefDao.updateAll(updated)
         }
+        recomputeBankChain()
     }
 
     /** 删除考核项。被任何日记录引用过（已确认或待确认）则不删并返回 false——否则历史分数会凭空变化。 */
     suspend fun deleteItemDef(item: Item): Boolean {
         ensureItemDefs()
-        return itemDefLock.withLock {
+        val deleted = itemDefLock.withLock {
             if (isItemReferenced(item)) {
                 false
             } else {
@@ -99,6 +113,8 @@ class ScreenTimeRepository(
                 true
             }
         }
+        if (deleted) recomputeBankChain()
+        return deleted
     }
 
     /** 数据量小，全表读入内存判断。 */
@@ -154,29 +170,54 @@ class ScreenTimeRepository(
     /**
      * 一次性修复 1.0 固化下来的错误期初（错位一周 + 考试奖励未结转）。
      *
-     * 按 weekStart 升序重放全部周行，只写回值有变化的行；DataStore 标记 `bank_carry_repaired_v1`
-     * 保证跨进程只执行一次。依赖考核项目录，所以先 [ensureItemDefs]。
+     * 等价于启动时跑一次 [recomputeBankChain]。DataStore 标记 `bank_carry_repaired_v1`
+     * 只在重放写回完成之后才写，进程中途被杀则下次启动重做（重放幂等）。
+     *
+     * 取锁顺序 `repairLock` → `weekLock`；调用方不得持有 `weekLock`。
      */
     suspend fun repairBankCarry() {
         if (bankCarryRepaired) return
         repairLock.withLock {
             if (bankCarryRepaired) return
             if (!settingsStore.isBankCarryRepaired()) {
-                ensureItemDefs()
-                val weeks = weekDao.all()
-                val fixed = BankCarry.replay(
-                    weeks = weeks,
-                    daysByWeek = dayDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
-                    examsByWeek = examDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
-                    cfg = settingsStore.observeConfig().first(),
-                    catalog = currentCatalog()
-                )
-                val original = weeks.associateBy { it.weekStart }
-                fixed.filter { it != original[it.weekStart] }.forEach { weekDao.upsert(it) }
+                recomputeBankChain()
                 settingsStore.markBankCarryRepaired()
             }
             bankCarryRepaired = true
         }
+    }
+
+    /**
+     * 银行余额完全由历史推导：按 weekStart 升序重放全部周行，把期初缓存
+     * （`prevBankMinutes / prevSavingCents`）写回为真值。取 `weekLock`。
+     *
+     * 调用时机：考核项目录写入、规则参数保存、一次性修复。写入某一周后的重放
+     * 在写入方法自己的锁段内经 [recomputeIfLaterLocked] 完成，不走这里。
+     */
+    private suspend fun recomputeBankChain() = weekLock.withLock { recomputeBankChainLocked() }
+
+    /** 调用方必须已持 `weekLock`。只写回值有变化的行，且在一个事务里写完。 */
+    private suspend fun recomputeBankChainLocked() {
+        val weeks = weekDao.all()
+        if (weeks.isEmpty()) return
+        val fixed = BankCarry.replay(
+            weeks = weeks,
+            daysByWeek = dayDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
+            examsByWeek = examDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
+            cfg = settingsStore.observeConfig().first(),
+            catalog = currentCatalog()
+        )
+        val original = weeks.associateBy { it.weekStart }
+        val changed = fixed.filter { it != original[it.weekStart] }
+        if (changed.isNotEmpty()) weekDao.upsertAll(changed)
+    }
+
+    /**
+     * 调用方必须已持 `weekLock`。写入第 [weekStart] 周（日记录、考试、周行，含新建行）之后调用：
+     * 存在更晚的周行时重放整条链；写的是最新一周则无事可做。
+     */
+    private suspend fun recomputeIfLaterLocked(weekStart: Long) {
+        if (weekDao.hasLater(weekStart)) recomputeBankChainLocked()
     }
 
     /**
@@ -230,13 +271,14 @@ class ScreenTimeRepository(
             }
         }
 
-    private suspend fun saveDay(weekStart: Long, day: DayRecord) {
-        ensureWeekRow(weekStart)
+    /** 调用方持当天的 `dayLock`；这里再取 `weekLock`（顺序 dayLock → weekLock）。 */
+    private suspend fun saveDay(weekStart: Long, day: DayRecord) = writeWeek(weekStart) {
+        ensureWeekRowLocked(weekStart)
         dayDao.upsert(Mappers.run { day.toEntity(weekStart) })
     }
 
-    suspend fun setExam(weekStart: Long, subject: Subject, score: Int) {
-        ensureWeekRow(weekStart)
+    suspend fun setExam(weekStart: Long, subject: Subject, score: Int) = writeWeek(weekStart) {
+        ensureWeekRowLocked(weekStart)
         if (score <= 0) {
             examDao.delete(weekStart, subject)
         } else {
@@ -244,36 +286,37 @@ class ScreenTimeRepository(
         }
     }
 
-    suspend fun addUsedMinutes(weekStart: Long, delta: Int) {
-        val row = ensureWeekRow(weekStart)
+    suspend fun addUsedMinutes(weekStart: Long, delta: Int) = writeWeek(weekStart) {
+        val row = ensureWeekRowLocked(weekStart)
         weekDao.upsert(row.copy(usedMinutes = (row.usedMinutes + delta).coerceAtLeast(0)))
     }
 
     /** 超时惩罚：按实际超出的分钟数 1:1 计入。 */
-    suspend fun applyOvertime(weekStart: Long, minutes: Int) {
-        val row = ensureWeekRow(weekStart)
+    suspend fun applyOvertime(weekStart: Long, minutes: Int) = writeWeek(weekStart) {
+        val row = ensureWeekRowLocked(weekStart)
         weekDao.upsert(row.copy(overtimeMinutes = (row.overtimeMinutes + minutes).coerceAtLeast(0)))
     }
 
     /** 兑换：扣减本周额度并累加金额。金额受每周上限约束。 */
-    suspend fun redeem(weekStart: Long, minutes: Int) {
+    suspend fun redeem(weekStart: Long, minutes: Int) = writeWeek(weekStart) {
         val cfg = settingsStore.observeConfig().first()
-        val row = ensureWeekRow(weekStart)
-        val board = observeWeek(weekStart).first()
+        val row = ensureWeekRowLocked(weekStart)
+        val board = boardLocked(weekStart, cfg, currentCatalog())
         val allowed = board.bank.redeemableMinutesThisWeek
         val actual = minutes.coerceAtMost(allowed)
-        if (actual <= 0) return
-        val cents = com.vdian.screentime.domain.BankCalculator.centsForMinutes(actual, cfg)
-        weekDao.upsert(
-            row.copy(
-                redeemedMinutes = row.redeemedMinutes + actual,
-                redeemedCents = row.redeemedCents + cents
+        if (actual > 0) {
+            val cents = com.vdian.screentime.domain.BankCalculator.centsForMinutes(actual, cfg)
+            weekDao.upsert(
+                row.copy(
+                    redeemedMinutes = row.redeemedMinutes + actual,
+                    redeemedCents = row.redeemedCents + cents
+                )
             )
-        )
+        }
     }
 
-    suspend fun saveNotes(weekStart: Long, good: String, improve: String) {
-        val row = ensureWeekRow(weekStart)
+    suspend fun saveNotes(weekStart: Long, good: String, improve: String) = writeWeek(weekStart) {
+        val row = ensureWeekRowLocked(weekStart)
         weekDao.upsert(row.copy(noteGood = good, noteImprove = improve))
     }
 
@@ -281,21 +324,41 @@ class ScreenTimeRepository(
      * 人工存入（正）/ 扣减（负）存钱金额。
      *
      * 扣减不能把存钱累计压到 0 以下，所以先按当前可用金额夹一次再写，
-     * 避免负数落库后影响后续周的结算。
+     * 避免负数落库后影响后续周的结算。夹完为 0 时不建行、不写库。
      */
     suspend fun adjustSaving(weekStart: Long, deltaCents: Int) {
         if (deltaCents == 0) return
-        val board = observeWeek(weekStart).first()
-        val available = board.bank.savingCents
-        val applied = if (deltaCents < 0) deltaCents.coerceAtLeast(-available) else deltaCents
-        if (applied == 0) return
-        val row = ensureWeekRow(weekStart)
-        weekDao.upsert(row.copy(savingAdjustCents = row.savingAdjustCents + applied))
+        writeWeek(weekStart) {
+            val board = boardLocked(weekStart, settingsStore.observeConfig().first(), currentCatalog())
+            val available = board.bank.savingCents
+            val applied = if (deltaCents < 0) deltaCents.coerceAtLeast(-available) else deltaCents
+            if (applied != 0) {
+                val row = ensureWeekRowLocked(weekStart)
+                weekDao.upsert(row.copy(savingAdjustCents = row.savingAdjustCents + applied))
+            }
+        }
     }
 
-    /** 取该周记录行；不存在则创建，并把上周的银行与存钱结算结果固化进来。 */
-    private suspend fun ensureWeekRow(weekStart: Long): WeekEntity {
+    /**
+     * 对第 [weekStart] 周的一次写入：先确保一次性修复已完成（它自己取 `repairLock` → `weekLock`，
+     * 所以必须在取 `weekLock` 之前），再在 `weekLock` 内执行 [block]，最后同一锁段内按需重放后续周。
+     *
+     * [block] 只能调用 `*Locked` 助手与 DAO，不得调用任何会取 `weekLock` 的公开方法。
+     */
+    private suspend fun <T> writeWeek(weekStart: Long, block: suspend () -> T): T {
         repairBankCarry()
+        return weekLock.withLock {
+            val result = block()
+            recomputeIfLaterLocked(weekStart)
+            result
+        }
+    }
+
+    /**
+     * 调用方必须已持 `weekLock`。取该周记录行；不存在则创建，期初取上一条周行的期末。
+     * 新行插在两条已有周行之间时，后续周由 [writeWeek] 末尾的重放修正。
+     */
+    private suspend fun ensureWeekRowLocked(weekStart: Long): WeekEntity {
         weekDao.get(weekStart)?.let { return it }
         val opening = previousClosing(
             weekStart, settingsStore.observeConfig().first(), currentCatalog()
@@ -307,6 +370,23 @@ class ScreenTimeRepository(
         )
         weekDao.upsert(settled)
         return settled
+    }
+
+    /**
+     * 调用方必须已持 `weekLock`。与 [observeWeek] 同口径地现算一周的 [WeekBoard]，
+     * 但不走 Flow（避免 `onStart` 里的 [repairBankCarry] 在锁内再取锁）。
+     */
+    private suspend fun boardLocked(weekStart: Long, cfg: RuleConfig, catalog: ItemCatalog): WeekBoard {
+        val row = weekDao.get(weekStart)
+        return WeekBoardAssembler.build(
+            weekStart = weekStart,
+            days = dayDao.getWeek(weekStart).map { Mappers.run { it.toDomain() } },
+            exams = examDao.getWeek(weekStart).map { Mappers.run { it.toDomain() } },
+            weekEntity = row,
+            fallbackOpening = if (row == null) previousClosing(weekStart, cfg, catalog) else null,
+            cfg = cfg,
+            catalog = catalog
+        )
     }
 
     /** 生成一周的空白 7 天记录，便于界面直接渲染。 */
@@ -330,11 +410,21 @@ class ScreenTimeRepository(
     suspend fun childName(): String = settingsStore.observeChildName().first()
 
     /**
+     * 保存规则参数。参数（保底、封顶、考试奖励等）影响每一周的期末，所以写完 DataStore 后
+     * 重放整条银行链。设置页必须走这里，不得直接调 [SettingsStore.saveConfig]。
+     */
+    suspend fun saveConfig(cfg: RuleConfig) {
+        settingsStore.saveConfig(cfg)
+        recomputeBankChain()
+    }
+
+    /**
      * 清空三张记录表。
      *
      * 规则参数与孩子姓名属于设置，不在这里删 —— "清空记录"再把分值改回默认值会很意外。
      */
-    suspend fun clearAllData() {
+    suspend fun clearAllData() = weekLock.withLock {
+        // 在 weekLock 内执行：与重放（含一次性修复）串行，避免重放把刚删掉的行写回去。
         dayDao.deleteAll()
         weekDao.deleteAll()
         examDao.deleteAll()

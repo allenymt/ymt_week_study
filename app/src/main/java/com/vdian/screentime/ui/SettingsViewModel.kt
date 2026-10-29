@@ -59,7 +59,7 @@ class SettingsViewModel(
         }
         val cfg = RuleConfigCodec.decode(values, base)
         viewModelScope.launch {
-            settings.saveConfig(cfg)
+            repo.saveConfig(cfg)  // 经仓库保存：写完后重放银行链
             settings.saveChildName(childName)
             _message.value = "已保存"
         }
