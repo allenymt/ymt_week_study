@@ -12,6 +12,7 @@ import com.vdian.screentime.domain.Subject
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -155,6 +156,11 @@ class DataImporterTest {
         assertTrue(err("""{"schemaVersion":3}""").contains("3"))
     }
 
+    @Test fun non_positive_schema_version_is_error() {
+        assertTrue(err("""{"schemaVersion":0}""").contains("0"))
+        err("""{"schemaVersion":-1}""")
+    }
+
     // ---- v2 -----------------------------------------------------------------
 
     private val ws1 = 20731L
@@ -223,6 +229,23 @@ class DataImporterTest {
         assertEquals(listOf(ws1, ws2), plan.weeks.map { it.weekStart })
         assertEquals(0, plan.weeks[1].usedMinutes)
         assertTrue(plan.warnings.any { it.contains("补上") })
+        // 补上的空白周不算"期初与历史不一致"
+        assertFalse(plan.warnings.toString(), plan.warnings.any { it.contains("重算") })
+    }
+
+    @Test
+    fun v2_duplicate_exam_keeps_last_entry() {
+        val root = JSONObject(v2Json())
+        root.getJSONArray("exams").put(
+            JSONObject().put("weekStart", ws1).put("subject", Subject.MATH.name).put("score", 80)
+        )
+        val plan = ok(root.toString())
+        val math = plan.exams.filter { it.weekStart == ws1 && it.subject == Subject.MATH }
+        assertEquals(listOf(80), math.map { it.score })
+        assertEquals(2, plan.exams.size)
+        assertEquals(listOf(ws1, ws2), plan.exams.map { it.weekStart })
+        assertTrue(plan.warnings.toString(), plan.warnings.any { it.contains("1 条重复的考试成绩") })
+        assertTrue(DataImporter.confirmMessage(plan, cfg).contains("考试记录：2 条"))
     }
 
     @Test

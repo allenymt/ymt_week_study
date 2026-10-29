@@ -7,10 +7,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * 表格列定义的唯一来源：列宽、行高、格子 TextView 的构造。
- *
- * 表头（[WeekFragment]）与数据行（[WeekRowAdapter]）都从这里取列顺序，
- * 避免两处各写一份而顺序漂移。
+ * 表格列宽、行高与格子 TextView 的唯一来源。列的集合与顺序由 `ItemCatalog.columns()` 决定，
+ * 表头（WeekFragment）与数据行（WeekRowAdapter）共用这里的尺寸以保证对齐。
  */
 object ItemColumns {
 
@@ -57,13 +55,6 @@ object ItemColumns {
             setPadding(2, 4, 2, 4)
         }
 
-    /** 表头行两侧的占位，宽度与数据行的星期 / 小计列对齐。 */
-    fun spacer(context: Context, widthDp: Int): android.view.View =
-        android.view.View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(context, widthDp), MATCH_PARENT)
-        }
-
-    private val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
     private val HEADER_BG = android.graphics.Color.parseColor("#E0E0E0")
     private val HEADER_FG = android.graphics.Color.parseColor("#424242")
 }

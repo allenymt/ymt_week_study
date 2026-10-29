@@ -120,7 +120,8 @@ object DataImporter {
         val config = RuleConfigCodec.decode(configMap(root), RuleConfig())
         val itemDefs = parseItemDefs(root)
         val days = parseDays(root)
-        val exams = parseExams(root)
+        val parsedExams = parseExams(root)
+        val exams = dedupeExams(parsedExams)
         val fileWeeks = parseWeeks(root)
 
         // 应用里写日记录或考试时一定先建周行；文件里缺周行的周按空白周补上，银行链才完整。
@@ -135,8 +136,13 @@ object DataImporter {
         if (missing.isNotEmpty()) {
             warnings += "有 ${missing.size} 周有日记录或考试但缺少周记录，已按空白周补上"
         }
-        val original = weeks.associateBy { it.weekStart }
-        val drifted = replayed.count { it != original[it.weekStart] }
+        val droppedExams = parsedExams.size - exams.size
+        if (droppedExams > 0) {
+            warnings += "有 $droppedExams 条重复的考试成绩，每周每科只保留最后一条"
+        }
+        // 只比较文件里原有的周行；补上的空白周期初本就是 0，重算后不同不算"不一致"。
+        val original = fileWeeks.associateBy { it.weekStart }
+        val drifted = replayed.count { w -> original[w.weekStart]?.let { it != w } ?: false }
         if (drifted > 0) {
             warnings += "有 $drifted 周的银行期初与历史不一致，已按历史重算"
         }
@@ -221,6 +227,13 @@ object DataImporter {
             )
         }
     }
+
+    /**
+     * 每周每科只保留一条考试成绩：同一 (weekStart, subject) 取数组里最后出现的一条，
+     * 结果按 weekStart 升序（同周内保持原顺序）。与应用内 setExam"先删同科再插"的语义一致。
+     */
+    internal fun dedupeExams(exams: List<ExamEntity>): List<ExamEntity> =
+        exams.associateBy { it.weekStart to it.subject }.values.sortedBy { it.weekStart }
 
     // ---- 共用部分 ---------------------------------------------------------------
 

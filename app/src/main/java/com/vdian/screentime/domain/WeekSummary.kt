@@ -6,7 +6,7 @@ package com.vdian.screentime.domain
  * 后者是银行累计超出上限的部分。
  */
 data class WeekSummary(
-    val dailyScores: List<Int>,          // 与输入 days 同序
+    val dailyScores: List<Int>,          // 按日期升序（WeekBoard.days 本身即升序）
     val dailyTotal: Int,                 // 每日加分合计（可为负）
     val examTotal: Int,                  // 考试奖励合计
     val baseMinutes: Int,                // 保底（无条件）
@@ -23,4 +23,7 @@ data class WeekSummary(
     val complaintCount: Int,             // 本周生效的投诉次数
     val complaintPenalty: Int,           // 单次投诉扣分绝对值（来自 ItemCatalog，供界面展示用）
     val capMinutes: Int                  // 单周封顶分钟数（来自 RuleConfig，供界面展示用）
-)
+) {
+    /** 本周投诉实际扣掉的分钟数（正数）。 */
+    val complaintDeductionMinutes: Int get() = complaintCount * complaintPenalty
+}

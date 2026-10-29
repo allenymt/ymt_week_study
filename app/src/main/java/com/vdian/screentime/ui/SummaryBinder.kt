@@ -22,7 +22,7 @@ object SummaryBinder {
         "每日加分合计" to s.dailyTotal.toString(),
         "考试奖励合计" to s.examTotal.toString(),
         // 投诉扣分显示为负数，便于和纸质表对照；单次扣分与"已使用"均由 WeekSummary 给出
-        "投诉扣分" to (-s.complaintCount * s.complaintPenalty).toString(),
+        "投诉扣分" to (-s.complaintDeductionMinutes).toString(),
         "本周总赚取" to s.totalEarned.toString(),
         "本周已使用" to s.totalUsedMinutes.toString(),
         "本周结余" to s.balance.toString()

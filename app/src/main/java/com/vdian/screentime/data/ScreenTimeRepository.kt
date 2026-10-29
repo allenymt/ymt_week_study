@@ -6,7 +6,6 @@ import com.vdian.screentime.data.entity.ItemDefEntity
 import com.vdian.screentime.data.entity.WeekEntity
 import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.DeleteItemResult
-import com.vdian.screentime.domain.ExamRecord
 import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.ItemDef
@@ -14,8 +13,6 @@ import com.vdian.screentime.domain.ItemDefEditor
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.ScoreRules
 import com.vdian.screentime.domain.Subject
-import com.vdian.screentime.domain.WeekDates
-import com.vdian.screentime.domain.WeekMeta
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -185,13 +182,19 @@ class ScreenTimeRepository(
      * 重放前进程被杀"留下的旧缓存。只用进程内标记，不落 DataStore；重放幂等，数据量小，
      * 每次启动跑一遍开销可忽略。进程内标记在重放完成后才置位。
      *
+     * 重放前顺带清理考试成绩的重复行：1.1 之前 [setExam] 每次都新插一行（id 自增），
+     * 同一周同一科可能留下多行。每个 (weekStart, subject) 只保留 id 最大（最后写入）的一行，见 [ExamDao.dedupe]。
+     *
      * 取锁顺序 `repairLock` → `weekLock`；调用方不得持有 `weekLock`。
      */
     suspend fun repairBankCarry() {
         if (bankCarryRepaired) return
         repairLock.withLock {
             if (bankCarryRepaired) return
-            recomputeBankChain()
+            weekLock.withLock {
+                examDao.dedupe()
+                recomputeBankChainLocked()
+            }
             bankCarryRepaired = true
         }
     }
@@ -246,53 +249,60 @@ class ScreenTimeRepository(
      * 孩子点击：把项加入待确认。已确认的项不受影响。
      * 目标项不在目录中或 [ItemDef.childClaimable] 为 false 时直接返回，不写库。
      *
-     * 读-改-写整段持当天的锁，见 [dayLock] 的说明。
+     * 读-改-写整段持当天的 `dayLock` 与 `weekLock`（顺序 dayLock → weekLock，见 [dayLock] 与 [weekLock] 的说明）：
+     * 目录与当天记录都在 `weekLock` 内读取，导入/重放不会插在读与写之间。
      */
-    suspend fun toggleChildClaim(weekStart: Long, epochDay: Long, item: Item) {
-        val catalog = currentCatalog()
-        if (catalog.def(item)?.childClaimable != true) return
+    suspend fun toggleChildClaim(weekStart: Long, epochDay: Long, item: Item) =
         dayLock.withLock(epochDay) {
-            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
-                ?: DayRecord(epochDay)
-            val pending = ScoreRules.claim(item, current.items, current.pending, catalog)
-            if (pending != current.pending) saveDay(weekStart, current.copy(pending = pending))
-        }
-    }
-
-    /** 家长点击：确认待确认项 / 取消已确认项 / 直接确认空格。确认时清掉同一互斥组的其他项。 */
-    suspend fun toggleParentConfirm(weekStart: Long, epochDay: Long, item: Item) {
-        val catalog = currentCatalog()
-        dayLock.withLock(epochDay) {
-            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
-                ?: DayRecord(epochDay)
-            val (items, pending) = ScoreRules.advance(item, current.items, current.pending, catalog)
-            saveDay(weekStart, current.copy(items = items, pending = pending))
-        }
-    }
-
-    /** 家长长按：退回孩子的申报。 */
-    suspend fun retractClaim(weekStart: Long, epochDay: Long, item: Item) =
-        dayLock.withLock(epochDay) {
-            val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
-            if (current != null) {
-                val pending = ScoreRules.retract(item, current.pending)
-                saveDay(weekStart, current.copy(pending = pending))
+            writeWeek(weekStart) {
+                val catalog = currentCatalog()
+                if (catalog.def(item)?.childClaimable != true) return@writeWeek
+                val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+                    ?: DayRecord(epochDay)
+                val pending = ScoreRules.claim(item, current.items, current.pending, catalog)
+                if (pending != current.pending) saveDayLocked(weekStart, current.copy(pending = pending))
             }
         }
 
-    /** 调用方持当天的 `dayLock`；这里再取 `weekLock`（顺序 dayLock → weekLock）。 */
-    private suspend fun saveDay(weekStart: Long, day: DayRecord) = writeWeek(weekStart) {
+    /**
+     * 家长点击：确认待确认项 / 取消已确认项 / 直接确认空格。确认时清掉同一互斥组的其他项。
+     * 读-改-写持 `dayLock` 与 `weekLock`，同 [toggleChildClaim]。
+     */
+    suspend fun toggleParentConfirm(weekStart: Long, epochDay: Long, item: Item) =
+        dayLock.withLock(epochDay) {
+            writeWeek(weekStart) {
+                val catalog = currentCatalog()
+                val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+                    ?: DayRecord(epochDay)
+                val (items, pending) = ScoreRules.advance(item, current.items, current.pending, catalog)
+                if (items != current.items || pending != current.pending) {
+                    saveDayLocked(weekStart, current.copy(items = items, pending = pending))
+                }
+            }
+        }
+
+    /** 家长长按：退回孩子的申报。当天无记录时不写库。读-改-写持 `dayLock` 与 `weekLock`，同 [toggleChildClaim]。 */
+    suspend fun retractClaim(weekStart: Long, epochDay: Long, item: Item) =
+        dayLock.withLock(epochDay) {
+            writeWeek(weekStart) {
+                val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
+                    ?: return@writeWeek
+                val pending = ScoreRules.retract(item, current.pending)
+                if (pending != current.pending) saveDayLocked(weekStart, current.copy(pending = pending))
+            }
+        }
+
+    /** 调用方必须已持当天的 `dayLock` 与 `weekLock`（经 [writeWeek]）。确保周行存在后整行写入当天记录。 */
+    private suspend fun saveDayLocked(weekStart: Long, day: DayRecord) {
         ensureWeekRowLocked(weekStart)
         dayDao.upsert(Mappers.run { day.toEntity(weekStart) })
     }
 
     suspend fun setExam(weekStart: Long, subject: Subject, score: Int) = writeWeek(weekStart) {
         ensureWeekRowLocked(weekStart)
-        if (score <= 0) {
-            examDao.delete(weekStart, subject)
-        } else {
-            examDao.upsert(ExamEntity(weekStart = weekStart, subject = subject, score = score))
-        }
+        // 每周每科只留一行：先删同科旧行（含历史遗留的重复行）再插入。ExamEntity.id 自增，upsert(id=0) 永远是新插。
+        examDao.delete(weekStart, subject)
+        if (score > 0) examDao.upsert(ExamEntity(weekStart = weekStart, subject = subject, score = score))
     }
 
     suspend fun addUsedMinutes(weekStart: Long, delta: Int) = writeWeek(weekStart) {
@@ -398,10 +408,6 @@ class ScreenTimeRepository(
         )
     }
 
-    /** 生成一周的空白 7 天记录，便于界面直接渲染。 */
-    fun blankWeek(weekStart: Long): List<DayRecord> =
-        (0L..6L).map { DayRecord(weekStart + it) }
-
     // ---- 设置页用：全量读取、导出与清空 ------------------------------------
 
     /** 导出用：全部日实体（保留 weekStart 等原始字段）。 */
@@ -421,12 +427,6 @@ class ScreenTimeRepository(
 
     /** 全部日记录，按天升序。 */
     suspend fun allDays(): List<DayRecord> = dayDao.all().map { Mappers.run { it.toDomain() } }
-
-    /** 全部周记录，按周升序。 */
-    suspend fun allWeeks(): List<WeekMeta> = weekDao.all().map { Mappers.run { it.toDomain() } }
-
-    /** 全部考试记录，按周、id 升序。 */
-    suspend fun allExams(): List<ExamRecord> = examDao.all().map { Mappers.run { it.toDomain() } }
 
     /** 当前生效的规则参数。导出时要把它一并写出去，否则记录无法解读。 */
     suspend fun currentConfig(): RuleConfig = settingsStore.observeConfig().first()
@@ -450,7 +450,8 @@ class ScreenTimeRepository(
      * 2. 事务提交后再写 DataStore（规则参数、孩子姓名）。
      * 3. 无论第 2 步成败，都按 DataStore 里实际生效的参数重放银行链——文件里的期初缓存一律不信。
      *
-     * 第 2、3 步在 [NonCancellable] 里执行，调用方协程被取消也会做完。任一步失败时数据库已换新，
+     * 整个导入不可取消：导入很快，避免事务提交后恰被取消、导致后续步骤不执行（例如留下"新记录 + 旧参数/旧姓名"
+     * 且无任何提示）。整段在 [NonCancellable] 里执行，包括开头的校验。任一提交后的步骤失败时数据库已换新，
      * 两步都做完后抛出 [ImportPartialException]，同时带上两处错误；只有事务内（含之前）抛出的异常
      * 才意味着"现有数据未改动"。
      *
@@ -458,7 +459,7 @@ class ScreenTimeRepository(
      * 锁内只调用 DAO、[recomputeBankChainLocked] 与 [currentCatalog]（后者至多取 `seedLock`），
      * 不调用 [observeWeek] / [repairBankCarry] / 任何会再取 `weekLock`、`itemDefLock` 的公开方法。
      */
-    suspend fun applyImport(plan: ImportPlan) {
+    suspend fun applyImport(plan: ImportPlan) = withContext(NonCancellable) {
         require(plan.itemDefs.isNotEmpty()) { "导入内容缺少考核项定义" }
         weekLock.withLock {
             itemDefLock.withLock {
@@ -474,25 +475,21 @@ class ScreenTimeRepository(
                 }
                 // item_def 已非空：种子写入永远不该再发生。
                 itemDefsReady = true
-                // 事务已提交：剩下的步骤不可取消（用户离开设置页也要做完），
-                // 否则会留下"新记录 + 旧参数/旧姓名"且无任何提示。
-                withContext(NonCancellable) {
-                    val settingsError = try {
-                        settingsStore.saveConfig(plan.config)
-                        settingsStore.saveChildName(plan.childName)
-                        null
-                    } catch (e: Exception) {
-                        e
-                    }
-                    val recomputeError = try {
-                        recomputeBankChainLocked()
-                        null
-                    } catch (e: Exception) {
-                        e
-                    }
-                    if (settingsError != null || recomputeError != null) {
-                        throw ImportPartialException(settingsError, recomputeError)
-                    }
+                val settingsError = try {
+                    settingsStore.saveConfig(plan.config)
+                    settingsStore.saveChildName(plan.childName)
+                    null
+                } catch (e: Exception) {
+                    e
+                }
+                val recomputeError = try {
+                    recomputeBankChainLocked()
+                    null
+                } catch (e: Exception) {
+                    e
+                }
+                if (settingsError != null || recomputeError != null) {
+                    throw ImportPartialException(settingsError, recomputeError)
                 }
             }
         }
