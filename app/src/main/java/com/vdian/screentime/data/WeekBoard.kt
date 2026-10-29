@@ -43,18 +43,37 @@ data class WeekBoard(
     }
 }
 
+/** 一周的银行期初（= 上一周期末）。 */
+data class BankOpening(val bankMinutes: Int, val savingCents: Int) {
+    companion object {
+        val ZERO = BankOpening(0, 0)
+    }
+}
+
+/** 本周期末，即下一周的期初。 */
+fun WeekBoard.closing(): BankOpening = BankOpening(bank.bankBalanceMinutes, bank.savingCents)
+
 /** 把数据库原始行拼装成 [WeekBoard]。纯函数。 */
 object WeekBoardAssembler {
 
+    /**
+     * 期初的来源：
+     * - 本周行存在时，取它自己固化的 `prevBankMinutes / prevSavingCents`（该字段即本周期初）；
+     * - 本周行尚不存在时，取 [fallbackOpening]，调用方应传入上一周行的期末（见 [BankCarry.closingOf]）；
+     *   为 null 表示没有上一周，期初为 0。
+     */
     fun build(
         weekStart: Long,
         days: List<DayRecord>,
         exams: List<ExamRecord>,
         weekEntity: WeekEntity?,
-        prevEntity: WeekEntity?,
+        fallbackOpening: BankOpening?,
         cfg: RuleConfig,
         catalog: ItemCatalog
     ): WeekBoard {
+        val opening = weekEntity?.let { BankOpening(it.prevBankMinutes, it.prevSavingCents) }
+            ?: fallbackOpening
+            ?: BankOpening.ZERO
         val byDay = days.associateBy { it.epochDay }
         val filled = (0L..6L).map { offset ->
             byDay[weekStart + offset] ?: DayRecord(weekStart + offset)
@@ -64,8 +83,8 @@ object WeekBoardAssembler {
             days = filled,
             exams = exams,
             meta = weekEntity?.toDomain() ?: WeekMeta(),
-            prevBankMinutes = prevEntity?.prevBankMinutes ?: 0,
-            prevSavingCents = prevEntity?.prevSavingCents ?: 0,
+            prevBankMinutes = opening.bankMinutes,
+            prevSavingCents = opening.savingCents,
             config = cfg,
             catalog = catalog
         )

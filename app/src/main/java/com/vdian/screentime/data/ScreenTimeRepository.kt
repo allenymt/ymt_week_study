@@ -107,6 +107,10 @@ class ScreenTimeRepository(
 
     // ---- 周视图 ----------------------------------------------------------------
 
+    /**
+     * 只读：不写任何行。期初规则见 [WeekBoardAssembler.build]——本周行不存在时
+     * 现算上一周行的期末作为期初。订阅前先完成一次性的银行期初修复。
+     */
     fun observeWeek(weekStart: Long): Flow<WeekBoard> = combine(
         dayDao.observeWeek(weekStart),
         examDao.observeWeek(weekStart),
@@ -119,11 +123,60 @@ class ScreenTimeRepository(
             days = dayEntities.map { Mappers.run { it.toDomain() } },
             exams = examEntities.map { Mappers.run { it.toDomain() } },
             weekEntity = weekEntity,
-            prevEntity = weekDao.getPrevious(weekStart),
+            fallbackOpening = if (weekEntity == null) previousClosing(weekStart, cfg, catalog) else null,
             cfg = cfg,
             catalog = catalog
         )
         board
+    }.onStart { repairBankCarry() }
+
+    /** 上一条已存在周行的期末；没有上一周行时为 null（即期初为 0）。 */
+    private suspend fun previousClosing(
+        weekStart: Long,
+        cfg: RuleConfig,
+        catalog: ItemCatalog
+    ): BankOpening? {
+        val prev = weekDao.getPrevious(weekStart) ?: return null
+        return BankCarry.closingOf(
+            row = prev,
+            days = dayDao.getWeek(prev.weekStart).map { Mappers.run { it.toDomain() } },
+            exams = examDao.getWeek(prev.weekStart).map { Mappers.run { it.toDomain() } },
+            cfg = cfg,
+            catalog = catalog
+        )
+    }
+
+    private val repairLock = Mutex()
+
+    @Volatile
+    private var bankCarryRepaired = false
+
+    /**
+     * 一次性修复 1.0 固化下来的错误期初（错位一周 + 考试奖励未结转）。
+     *
+     * 按 weekStart 升序重放全部周行，只写回值有变化的行；DataStore 标记 `bank_carry_repaired_v1`
+     * 保证跨进程只执行一次。依赖考核项目录，所以先 [ensureItemDefs]。
+     */
+    suspend fun repairBankCarry() {
+        if (bankCarryRepaired) return
+        repairLock.withLock {
+            if (bankCarryRepaired) return
+            if (!settingsStore.isBankCarryRepaired()) {
+                ensureItemDefs()
+                val weeks = weekDao.all()
+                val fixed = BankCarry.replay(
+                    weeks = weeks,
+                    daysByWeek = dayDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
+                    examsByWeek = examDao.all().groupBy({ it.weekStart }, { Mappers.run { it.toDomain() } }),
+                    cfg = settingsStore.observeConfig().first(),
+                    catalog = currentCatalog()
+                )
+                val original = weeks.associateBy { it.weekStart }
+                fixed.filter { it != original[it.weekStart] }.forEach { weekDao.upsert(it) }
+                settingsStore.markBankCarryRepaired()
+            }
+            bankCarryRepaired = true
+        }
     }
 
     /**
@@ -242,26 +295,16 @@ class ScreenTimeRepository(
 
     /** 取该周记录行；不存在则创建，并把上周的银行与存钱结算结果固化进来。 */
     private suspend fun ensureWeekRow(weekStart: Long): WeekEntity {
+        repairBankCarry()
         weekDao.get(weekStart)?.let { return it }
-        val prev = weekDao.getPrevious(weekStart)
-        val settled = if (prev == null) {
-            WeekEntity(weekStart = weekStart, prevBankMinutes = 0, prevSavingCents = 0)
-        } else {
-            val prevBoard = WeekBoardAssembler.build(
-                weekStart = prev.weekStart,
-                days = dayDao.all().filter { it.weekStart == prev.weekStart }.map { Mappers.run { it.toDomain() } },
-                exams = emptyList(),
-                weekEntity = prev,
-                prevEntity = weekDao.getPrevious(prev.weekStart),
-                cfg = settingsStore.observeConfig().first(),
-                catalog = currentCatalog()
-            )
-            WeekEntity(
-                weekStart = weekStart,
-                prevBankMinutes = prevBoard.bank.bankBalanceMinutes,
-                prevSavingCents = prevBoard.bank.savingCents
-            )
-        }
+        val opening = previousClosing(
+            weekStart, settingsStore.observeConfig().first(), currentCatalog()
+        ) ?: BankOpening.ZERO
+        val settled = WeekEntity(
+            weekStart = weekStart,
+            prevBankMinutes = opening.bankMinutes,
+            prevSavingCents = opening.savingCents
+        )
         weekDao.upsert(settled)
         return settled
     }

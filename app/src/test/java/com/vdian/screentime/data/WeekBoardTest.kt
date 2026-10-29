@@ -22,7 +22,7 @@ class WeekBoardTest {
             days = emptyList(),
             exams = emptyList(),
             weekEntity = null,
-            prevEntity = null,
+            fallbackOpening = null,
             cfg = cfg,
             catalog = catalog
         )
@@ -38,7 +38,7 @@ class WeekBoardTest {
             days = listOf(DayRecord(weekStart + 2, setOf(Item.RAISED))),
             exams = emptyList(),
             weekEntity = null,
-            prevEntity = null,
+            fallbackOpening = null,
             cfg = cfg,
             catalog = catalog
         )
@@ -57,14 +57,23 @@ class WeekBoardTest {
     }
 
     @Test
-    fun board_reads_previous_week_totals_from_prev_entity() {
-        val prev = WeekEntity(weekStart = 93L, prevBankMinutes = 120, prevSavingCents = 600)
+    fun board_opening_comes_from_own_week_entity() {
+        // 本周行固化的 prevBankMinutes / prevSavingCents 就是本周期初；fallback 被忽略
+        val own = WeekEntity(weekStart = weekStart, prevBankMinutes = 120, prevSavingCents = 600)
         val board = WeekBoardAssembler.build(
-            weekStart, emptyList(), emptyList(), null, prev, cfg, catalog
+            weekStart, emptyList(), emptyList(), own, BankOpening(999, 999), cfg, catalog
         )
-        // prevBankMinutes 语义是该周结算后的银行余额
         assertEquals(120, board.prevBankMinutes)
         assertEquals(600, board.prevSavingCents)
+    }
+
+    @Test
+    fun board_without_own_row_uses_fallback_opening() {
+        val board = WeekBoardAssembler.build(
+            weekStart, emptyList(), emptyList(), null, BankOpening(150, 300), cfg, catalog
+        )
+        assertEquals(150, board.prevBankMinutes)
+        assertEquals(300, board.prevSavingCents)
     }
 
     @Test

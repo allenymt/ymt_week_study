@@ -14,6 +14,9 @@ interface ExamDao {
     @Query("SELECT * FROM exam_record WHERE weekStart = :weekStart ORDER BY id ASC")
     fun observeWeek(weekStart: Long): Flow<List<ExamEntity>>
 
+    @Query("SELECT * FROM exam_record WHERE weekStart = :weekStart ORDER BY id ASC")
+    suspend fun getWeek(weekStart: Long): List<ExamEntity>
+
     @Query("SELECT * FROM exam_record ORDER BY weekStart ASC, id ASC")
     suspend fun all(): List<ExamEntity>
 

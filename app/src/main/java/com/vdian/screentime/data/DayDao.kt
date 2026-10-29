@@ -13,6 +13,9 @@ interface DayDao {
     @Query("SELECT * FROM day_record WHERE weekStart = :weekStart ORDER BY epochDay ASC")
     fun observeWeek(weekStart: Long): Flow<List<DayEntity>>
 
+    @Query("SELECT * FROM day_record WHERE weekStart = :weekStart ORDER BY epochDay ASC")
+    suspend fun getWeek(weekStart: Long): List<DayEntity>
+
     @Query("SELECT * FROM day_record WHERE epochDay = :epochDay LIMIT 1")
     suspend fun getByDay(epochDay: Long): DayEntity?
 

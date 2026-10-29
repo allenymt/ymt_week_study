@@ -96,9 +96,13 @@ class ItemDefSeedTest {
     @Test
     fun legacy_keys_match_rule_config_codec_names() {
         // 旧分值键名必须与 1.0 版写入 DataStore 的字段名一致，否则读不到用户改过的分值
-        val codecKeys = RuleConfigCodec.encode(RuleConfig()).keys
-        assertEquals(7, RuleConfigCodec.LEGACY_POINT_KEYS.size)
-        RuleConfigCodec.LEGACY_POINT_KEYS.forEach { assertTrue(it, it in codecKeys) }
+        assertEquals(
+            listOf(
+                "raisePoints", "neatWritingPoints", "englishPoints", "readingPoints",
+                "exercisePoints", "praisePoints", "complaintPenalty"
+            ),
+            RuleConfigCodec.LEGACY_POINT_KEYS
+        )
     }
 
     @Test
