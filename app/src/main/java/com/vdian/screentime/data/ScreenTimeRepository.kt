@@ -125,7 +125,7 @@ class ScreenTimeRepository(
 
     /**
      * 只读：不写任何行。期初规则见 [WeekBoardAssembler.build]——本周行不存在时
-     * 现算上一周行的期末作为期初。订阅前先完成一次性的银行期初修复。
+     * 现算上一周行的期末作为期初。订阅前先完成本进程的银行期初校准（只读之外唯一的写库点）。
      */
     fun observeWeek(weekStart: Long): Flow<WeekBoard> = combine(
         dayDao.observeWeek(weekStart),
@@ -168,10 +168,11 @@ class ScreenTimeRepository(
     private var bankCarryRepaired = false
 
     /**
-     * 一次性修复 1.0 固化下来的错误期初（错位一周 + 考试奖励未结转）。
+     * 每次进程启动校准一次银行期初缓存：首次读写前跑一遍 [recomputeBankChain]。
      *
-     * 等价于启动时跑一次 [recomputeBankChain]。DataStore 标记 `bank_carry_repaired_v1`
-     * 只在重放写回完成之后才写，进程中途被杀则下次启动重做（重放幂等）。
+     * 既修复 1.0 固化下来的错误期初（错位一周 + 考试奖励未结转），也兜底"改参数/改目录后、
+     * 重放前进程被杀"留下的旧缓存。只用进程内标记，不落 DataStore；重放幂等，数据量小，
+     * 每次启动跑一遍开销可忽略。进程内标记在重放完成后才置位。
      *
      * 取锁顺序 `repairLock` → `weekLock`；调用方不得持有 `weekLock`。
      */
@@ -179,10 +180,7 @@ class ScreenTimeRepository(
         if (bankCarryRepaired) return
         repairLock.withLock {
             if (bankCarryRepaired) return
-            if (!settingsStore.isBankCarryRepaired()) {
-                recomputeBankChain()
-                settingsStore.markBankCarryRepaired()
-            }
+            recomputeBankChain()
             bankCarryRepaired = true
         }
     }
@@ -191,7 +189,7 @@ class ScreenTimeRepository(
      * 银行余额完全由历史推导：按 weekStart 升序重放全部周行，把期初缓存
      * （`prevBankMinutes / prevSavingCents`）写回为真值。取 `weekLock`。
      *
-     * 调用时机：考核项目录写入、规则参数保存、一次性修复。写入某一周后的重放
+     * 调用时机：考核项目录写入、规则参数保存、每次启动的校准（[repairBankCarry]）。写入某一周后的重放
      * 在写入方法自己的锁段内经 [recomputeIfLaterLocked] 完成，不走这里。
      */
     private suspend fun recomputeBankChain() = weekLock.withLock { recomputeBankChainLocked() }
@@ -340,7 +338,7 @@ class ScreenTimeRepository(
     }
 
     /**
-     * 对第 [weekStart] 周的一次写入：先确保一次性修复已完成（它自己取 `repairLock` → `weekLock`，
+     * 对第 [weekStart] 周的一次写入：先确保本进程的启动校准已完成（它自己取 `repairLock` → `weekLock`，
      * 所以必须在取 `weekLock` 之前），再在 `weekLock` 内执行 [block]，最后同一锁段内按需重放后续周。
      *
      * [block] 只能调用 `*Locked` 助手与 DAO，不得调用任何会取 `weekLock` 的公开方法。
@@ -424,7 +422,7 @@ class ScreenTimeRepository(
      * 规则参数与孩子姓名属于设置，不在这里删 —— "清空记录"再把分值改回默认值会很意外。
      */
     suspend fun clearAllData() = weekLock.withLock {
-        // 在 weekLock 内执行：与重放（含一次性修复）串行，避免重放把刚删掉的行写回去。
+        // 在 weekLock 内执行：与重放（含启动校准）串行，避免重放把刚删掉的行写回去。
         dayDao.deleteAll()
         weekDao.deleteAll()
         examDao.deleteAll()

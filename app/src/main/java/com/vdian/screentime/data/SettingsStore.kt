@@ -3,7 +3,6 @@ package com.vdian.screentime.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -100,9 +99,6 @@ class SettingsStore(private val context: Context) {
 
     private val childNameKey = stringPreferencesKey("child_name")
 
-    /** 1.1 一次性修复银行期初（见 ScreenTimeRepository.repairBankCarry）是否已完成。 */
-    private val bankCarryRepairedKey = booleanPreferencesKey("bank_carry_repaired_v1")
-
     private fun configKey(name: String) = intPreferencesKey("rule_$name")
 
     fun observeConfig(): Flow<RuleConfig> = context.dataStore.data.map { prefs ->
@@ -127,13 +123,6 @@ class SettingsStore(private val context: Context) {
     suspend fun readLegacyPoints(): Map<String, Int> {
         val prefs = context.dataStore.data.first()
         return RuleConfigCodec.legacyPoints { name -> prefs[configKey(name)] }
-    }
-
-    suspend fun isBankCarryRepaired(): Boolean =
-        context.dataStore.data.first()[bankCarryRepairedKey] == true
-
-    suspend fun markBankCarryRepaired() {
-        context.dataStore.edit { it[bankCarryRepairedKey] = true }
     }
 
     fun observeChildName(): Flow<String> =
