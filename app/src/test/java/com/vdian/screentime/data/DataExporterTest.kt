@@ -27,12 +27,12 @@ class DataExporterTest {
             days = emptyList(),
             weeks = emptyList(),
             exams = emptyList(),
-            cfg = RuleConfig(raisePoints = 12),
+            cfg = RuleConfig(baseMinutes = 90),
             childName = "小明"
         )
         val root = JSONObject(json)
         assertEquals("小明", root.getString("childName"))
-        assertEquals(12, root.getJSONObject("config").getInt("raisePoints"))
+        assertEquals(90, root.getJSONObject("config").getInt("baseMinutes"))
     }
 
     @Test

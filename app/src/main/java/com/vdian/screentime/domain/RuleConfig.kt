@@ -2,13 +2,6 @@ package com.vdian.screentime.domain
 
 /** 全部可配置规则参数。默认值取自纸质记录表。 */
 data class RuleConfig(
-    val raisePoints: Int = 10,
-    val neatWritingPoints: Int = 10,
-    val englishPoints: Int = 10,
-    val readingPoints: Int = 15,
-    val exercisePoints: Int = 15,
-    val praisePoints: Int = 10,
-    val complaintPenalty: Int = 30,
     val complaintMaxPerWeek: Int = 2,
     val baseMinutes: Int = 60,
     val noComplaintBonusMinutes: Int = 60,

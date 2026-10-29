@@ -119,8 +119,8 @@ class ItemDefSeedTest {
     @Test
     fun seeded_catalog_scores_like_legacy_config() {
         // 用户改过的旧分值经种子写入后，计分与 1.0 版的 RuleConfig 完全一致
-        val cfg = RuleConfig(raisePoints = 12, readingPoints = 20, complaintPenalty = 50)
-        val legacy = RuleConfigCodec.legacyPoints { RuleConfigCodec.encode(cfg)[it] }
+        val stored = mapOf("raisePoints" to 12, "readingPoints" to 20, "complaintPenalty" to 50)
+        val legacy = RuleConfigCodec.legacyPoints { stored[it] }
         val catalog = ItemCatalog(ItemDefSeed.entities(legacy).map { it.toDomain() })
         assertEquals(12, catalog.points(Item.RAISED))
         assertEquals(20, catalog.points(Item.READING))

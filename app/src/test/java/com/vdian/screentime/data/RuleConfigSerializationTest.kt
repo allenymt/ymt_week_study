@@ -9,13 +9,6 @@ class RuleConfigSerializationTest {
     @Test
     fun encode_decode_roundtrips_all_fields() {
         val cfg = RuleConfig(
-            raisePoints = 20,
-            neatWritingPoints = 5,
-            englishPoints = 12,
-            readingPoints = 25,
-            exercisePoints = 8,
-            praisePoints = 11,
-            complaintPenalty = 40,
             complaintMaxPerWeek = 3,
             baseMinutes = 90,
             noComplaintBonusMinutes = 30,
@@ -40,26 +33,26 @@ class RuleConfigSerializationTest {
     @Test
     fun decode_falls_back_to_defaults_for_missing_keys() {
         // 只覆盖一个字段，其余应保持默认值（向前兼容旧存档）
-        val decoded = RuleConfigCodec.decode(mapOf("raisePoints" to 99), RuleConfig())
-        assertEquals(99, decoded.raisePoints)
-        assertEquals(15, decoded.readingPoints)
+        val decoded = RuleConfigCodec.decode(mapOf("baseMinutes" to 99), RuleConfig())
+        assertEquals(99, decoded.baseMinutes)
+        assertEquals(60, decoded.noComplaintBonusMinutes)
         assertEquals(240, decoded.weekCapMinutes)
     }
 
     @Test
     fun decode_ignores_unknown_keys() {
         val decoded = RuleConfigCodec.decode(
-            mapOf("raisePoints" to 11, "futureFieldWeDontKnow" to 7),
+            mapOf("baseMinutes" to 11, "raisePoints" to 5, "futureFieldWeDontKnow" to 7),
             RuleConfig()
         )
-        assertEquals(11, decoded.raisePoints)
-        assertEquals(10, decoded.neatWritingPoints)
+        assertEquals(11, decoded.baseMinutes)
+        assertEquals(RuleConfig().copy(baseMinutes = 11), decoded)
     }
 
     @Test
     fun encode_covers_every_field_so_nothing_is_silently_dropped() {
         val encoded = RuleConfigCodec.encode(RuleConfig())
-        // 23 个可配置项，少一个都说明新增字段时忘记加进编解码
-        assertEquals(23, encoded.size)
+        // 16 个可配置项，少一个都说明新增字段时忘记加进编解码
+        assertEquals(16, encoded.size)
     }
 }

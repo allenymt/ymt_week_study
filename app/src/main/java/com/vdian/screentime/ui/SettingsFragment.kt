@@ -10,17 +10,22 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.vdian.screentime.data.RuleConfigCodec
 import com.vdian.screentime.data.SettingsStore
+import com.vdian.screentime.databinding.DialogItemDefBinding
 import com.vdian.screentime.databinding.FragmentSettingsBinding
+import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemDef
+import com.vdian.screentime.domain.ItemDefEditor
 import com.vdian.screentime.domain.RuleConfig
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * 设置页：孩子姓名、21 个规则参数分组编辑、导出、清空。
+ * 设置页：孩子姓名、规则参数、考核项管理分组编辑、导出、清空。
  *
  * 输入框与字段的对应关系只在这里列一次；字段名与默认值都取自 [RuleConfigCodec]，
  * 和存储层共用同一份清单，新增参数时不会两边写岔。
@@ -61,6 +66,18 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.saveSettingsButton.setOnClickListener { save() }
+
+        val adapter = ItemDefAdapter(
+            onEdit = { showItemDialog(it) },
+            onMove = { def, up -> vm.moveItem(def.item, up) },
+            onToggle = { def, on -> vm.setItemEnabled(def.item, on) },
+            onDelete = { confirmDelete(it) }
+        )
+        binding.itemDefList.layoutManager = LinearLayoutManager(requireContext())
+        binding.itemDefList.adapter = adapter
+        binding.itemDefList.itemAnimator = null
+        binding.addItemButton.setOnClickListener { showItemDialog(null) }
+        vm.itemDefs.observe(viewLifecycleOwner) { adapter.submitList(it) }
         binding.exportButton.setOnClickListener { vm.export() }
         binding.clearButton.setOnClickListener { confirmClear() }
 
@@ -88,13 +105,6 @@ class SettingsFragment : Fragment() {
      */
     private fun fieldViews(): List<Pair<String, EditText>> = binding.run {
         listOf(
-            "raisePoints" to cfgRaisePoints,
-            "neatWritingPoints" to cfgNeatWritingPoints,
-            "englishPoints" to cfgEnglishPoints,
-            "readingPoints" to cfgReadingPoints,
-            "exercisePoints" to cfgExercisePoints,
-            "praisePoints" to cfgPraisePoints,
-            "complaintPenalty" to cfgComplaintPenalty,
             "complaintMaxPerWeek" to cfgComplaintMaxPerWeek,
             "baseMinutes" to cfgBaseMinutes,
             "noComplaintBonusMinutes" to cfgNoComplaintBonusMinutes,
@@ -153,6 +163,53 @@ class SettingsFragment : Fragment() {
         vm.save(texts, binding.childNameInput.text.toString().trim(), base)
         // 收起软键盘，让用户看到"已保存"的提示。
         activity?.currentFocus?.clearFocus()
+    }
+
+    private fun confirmDelete(def: ItemDef) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("删除「${def.name}」？")
+            .setPositiveButton("删除") { _, _ -> vm.deleteItem(def.item) }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /** 新增（[old] 为空）或编辑考核项。校验不过时对话框保持打开并在输入框上提示。 */
+    private fun showItemDialog(old: ItemDef?) {
+        val d = DialogItemDefBinding.inflate(layoutInflater)
+        if (old != null) {
+            d.defName.setText(old.name)
+            d.defPoints.setText(old.points.toString())
+            d.defClaimable.isChecked = old.childClaimable
+            d.defGroup.setText(old.exclusiveGroup.orEmpty())
+        } else {
+            d.defClaimable.isChecked = true
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(if (old == null) "新增考核项" else "编辑考核项")
+            .setView(d.root)
+            .setPositiveButton("保存", null)
+            .setNegativeButton("取消", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val current = vm.itemDefs.value.orEmpty()
+                val result = ItemDefEditor.build(
+                    base = old,
+                    newItem = Item(ItemDefEditor.newKey(System.currentTimeMillis())),
+                    sortOrder = ItemDefEditor.nextSortOrder(current),
+                    name = d.defName.text.toString(),
+                    pointsText = d.defPoints.text.toString(),
+                    childClaimable = d.defClaimable.isChecked,
+                    exclusiveGroup = d.defGroup.text.toString()
+                )
+                d.defName.error = result.nameError
+                d.defPoints.error = result.pointsError
+                val def = result.def ?: return@setOnClickListener
+                vm.saveItem(def, old)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun confirmClear() {

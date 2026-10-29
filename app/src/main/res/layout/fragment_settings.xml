@@ -37,176 +37,28 @@
             android:inputType="textPersonName"
             android:maxLines="1" />
 
-        <!-- ============ 每日分值 ============ -->
+        <!-- ============ 考核项 ============ -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingTop="16dp"
-            android:text="每日分值"
+            android:text="考核项（点击行编辑）"
             android:textSize="14sp"
             android:textStyle="bold" />
 
-        <LinearLayout
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/itemDefList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="举手回答（默认 10）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgRaisePoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
+        <Button
+            android:id="@+id/addItemButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="字认真（默认 10）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgNeatWritingPoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="主动英语（默认 10）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgEnglishPoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="主动阅读（默认 15）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgReadingPoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="主动运动（默认 15）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgExercisePoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="老师表扬（默认 10）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgPraisePoints"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="3"
-                android:text="投诉扣分（默认 30）"
-                android:textSize="15sp" />
-
-            <EditText
-                android:id="@+id/cfgComplaintPenalty"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="2"
-                android:gravity="end"
-                android:inputType="number"
-                android:maxLines="1" />
-        </LinearLayout>
+            android:text="新增考核项" />
 
         <LinearLayout
             android:layout_width="match_parent"

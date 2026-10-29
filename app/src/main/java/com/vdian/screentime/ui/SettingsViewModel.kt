@@ -8,6 +8,9 @@ import com.vdian.screentime.data.DataExporter
 import com.vdian.screentime.data.RuleConfigCodec
 import com.vdian.screentime.data.ScreenTimeRepository
 import com.vdian.screentime.data.SettingsStore
+import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemDef
+import com.vdian.screentime.domain.ItemDefEditor
 import com.vdian.screentime.domain.RuleConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -38,7 +41,17 @@ class SettingsViewModel(
     private val _message = MutableLiveData<String>()
     val message: LiveData<String> = _message
 
+    private val _itemDefs = MutableLiveData<List<ItemDef>>(emptyList())
+
+    /** 全部考核项（含已停用），按 sortOrder 升序。 */
+    val itemDefs: LiveData<List<ItemDef>> = _itemDefs
+
     init {
+        viewModelScope.launch {
+            repo.observeItemCatalog().collectLatest { c ->
+                _itemDefs.value = c.defs.sortedBy { it.sortOrder }
+            }
+        }
         viewModelScope.launch {
             settings.observeConfig().collectLatest { _config.value = it }
         }
@@ -85,6 +98,33 @@ class SettingsViewModel(
         viewModelScope.launch {
             repo.clearAllData()
             _message.value = "已清空所有记录"
+        }
+    }
+
+    /** 新增或编辑后保存。改了分值时提示会重算历史。 */
+    fun saveItem(def: ItemDef, old: ItemDef?) {
+        viewModelScope.launch {
+            repo.upsertItemDef(def)
+            _message.value = if (ItemDefEditor.pointsChanged(old, def)) {
+                "已保存。修改分值会重新计算所有历史周的分数，当前银行余额也会随之变化"
+            } else {
+                "已保存"
+            }
+        }
+    }
+
+    fun setItemEnabled(item: Item, enabled: Boolean) {
+        viewModelScope.launch { repo.setItemEnabled(item, enabled) }
+    }
+
+    fun moveItem(item: Item, up: Boolean) {
+        viewModelScope.launch { repo.moveItem(item, up) }
+    }
+
+    fun deleteItem(item: Item) {
+        viewModelScope.launch {
+            _message.value =
+                if (repo.deleteItemDef(item)) "已删除" else "该项有历史记录，只能停用"
         }
     }
 }

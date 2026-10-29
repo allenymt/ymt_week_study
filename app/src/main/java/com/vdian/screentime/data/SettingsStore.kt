@@ -17,13 +17,6 @@ object RuleConfigCodec {
 
     /** 字段名 -> 取值函数。新增字段时必须同步加到这里。 */
     private val fields: List<Pair<String, (RuleConfig) -> Int>> = listOf(
-        "raisePoints" to { it.raisePoints },
-        "neatWritingPoints" to { it.neatWritingPoints },
-        "englishPoints" to { it.englishPoints },
-        "readingPoints" to { it.readingPoints },
-        "exercisePoints" to { it.exercisePoints },
-        "praisePoints" to { it.praisePoints },
-        "complaintPenalty" to { it.complaintPenalty },
         "complaintMaxPerWeek" to { it.complaintMaxPerWeek },
         "baseMinutes" to { it.baseMinutes },
         "noComplaintBonusMinutes" to { it.noComplaintBonusMinutes },
@@ -66,13 +59,6 @@ object RuleConfigCodec {
             ?: error("unknown key: $key")
 
         return RuleConfig(
-            raisePoints = v("raisePoints"),
-            neatWritingPoints = v("neatWritingPoints"),
-            englishPoints = v("englishPoints"),
-            readingPoints = v("readingPoints"),
-            exercisePoints = v("exercisePoints"),
-            praisePoints = v("praisePoints"),
-            complaintPenalty = v("complaintPenalty"),
             complaintMaxPerWeek = v("complaintMaxPerWeek"),
             baseMinutes = v("baseMinutes"),
             noComplaintBonusMinutes = v("noComplaintBonusMinutes"),
