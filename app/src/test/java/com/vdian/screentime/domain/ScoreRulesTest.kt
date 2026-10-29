@@ -217,6 +217,29 @@ class ScoreRulesTest {
     }
 
     @Test
+    fun child_claim_rejected_when_group_already_has_pending_item() {
+        // 同组另一项已待确认（例如家长之前直接录入后又被改成待确认的情形），不能再报第二个
+        val custom = ItemCatalog(catalog.defs.map {
+            if (it.item == Item.NEAT_WRITING_BAD) it.copy(childClaimable = true) else it
+        })
+        val pending = ScoreRules.claim(
+            Item.NEAT_WRITING_BAD, emptySet(), setOf(Item.NEAT_WRITING, Item.READING), custom
+        )
+        assertEquals(setOf(Item.NEAT_WRITING, Item.READING), pending)
+
+        val pending2 = ScoreRules.claim(
+            Item.HOMEWORK_ACTIVE, setOf(Item.RAISED), setOf(Item.HOMEWORK_PASSIVE), catalog
+        )
+        assertEquals(setOf(Item.HOMEWORK_PASSIVE), pending2)
+    }
+
+    @Test
+    fun child_claim_on_already_pending_item_is_idempotent() {
+        val pending = ScoreRules.claim(Item.NEAT_WRITING, emptySet(), setOf(Item.NEAT_WRITING), catalog)
+        assertEquals(setOf(Item.NEAT_WRITING), pending)
+    }
+
+    @Test
     fun child_claim_adds_to_pending_when_no_conflict() {
         val pending = ScoreRules.claim(Item.NEAT_WRITING, setOf(Item.RAISED), emptySet(), catalog)
         assertEquals(setOf(Item.NEAT_WRITING), pending)

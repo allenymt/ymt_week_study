@@ -2,6 +2,7 @@ package com.vdian.screentime.data
 
 import com.vdian.screentime.data.entity.WeekEntity
 import com.vdian.screentime.domain.DayRecord
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.WeekMeta
 import org.junit.Assert.assertEquals
@@ -30,7 +31,8 @@ class BankRollupTest {
         ),
         prevBankMinutes = prevBankMinutes,
         prevSavingCents = prevSavingCents,
-        config = cfg
+        config = cfg,
+        catalog = ItemCatalog.builtin()
     )
 
     @Test

@@ -3,6 +3,7 @@ package com.vdian.screentime.data
 import com.vdian.screentime.data.entity.WeekEntity
 import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.RuleConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -11,6 +12,7 @@ import org.junit.Test
 class WeekBoardTest {
 
     private val cfg = RuleConfig()
+    private val catalog = ItemCatalog.builtin()
     private val weekStart = 100L
 
     @Test
@@ -21,7 +23,8 @@ class WeekBoardTest {
             exams = emptyList(),
             weekEntity = null,
             prevEntity = null,
-            cfg = cfg
+            cfg = cfg,
+            catalog = catalog
         )
         assertEquals(7, board.days.size)
         assertEquals(weekStart, board.days.first().epochDay)
@@ -36,7 +39,8 @@ class WeekBoardTest {
             exams = emptyList(),
             weekEntity = null,
             prevEntity = null,
-            cfg = cfg
+            cfg = cfg,
+            catalog = catalog
         )
         assertEquals(setOf(Item.RAISED), board.days[2].items)
         assertEquals(emptySet<Item>(), board.days[0].items)
@@ -45,7 +49,7 @@ class WeekBoardTest {
     @Test
     fun board_without_week_entity_uses_zero_meta() {
         val board = WeekBoardAssembler.build(
-            weekStart, emptyList(), emptyList(), null, null, cfg
+            weekStart, emptyList(), emptyList(), null, null, cfg, catalog
         )
         assertEquals(0, board.meta.usedMinutes)
         assertEquals(0, board.prevBankMinutes)
@@ -56,7 +60,7 @@ class WeekBoardTest {
     fun board_reads_previous_week_totals_from_prev_entity() {
         val prev = WeekEntity(weekStart = 93L, prevBankMinutes = 120, prevSavingCents = 600)
         val board = WeekBoardAssembler.build(
-            weekStart, emptyList(), emptyList(), null, prev, cfg
+            weekStart, emptyList(), emptyList(), null, prev, cfg, catalog
         )
         // prevBankMinutes 语义是该周结算后的银行余额
         assertEquals(120, board.prevBankMinutes)
@@ -66,7 +70,7 @@ class WeekBoardTest {
     @Test
     fun summary_and_bank_are_derived_and_non_null() {
         val board = WeekBoardAssembler.build(
-            weekStart, emptyList(), emptyList(), null, null, cfg
+            weekStart, emptyList(), emptyList(), null, null, cfg, catalog
         )
         assertNotNull(board.summary)
         assertNotNull(board.bank)
@@ -79,10 +83,24 @@ class WeekBoardTest {
             weekStart = weekStart, usedMinutes = 45, overtimeMinutes = 5, redeemedMinutes = 30
         )
         val board = WeekBoardAssembler.build(
-            weekStart, emptyList(), emptyList(), entity, null, cfg
+            weekStart, emptyList(), emptyList(), entity, null, cfg, catalog
         )
         assertEquals(45, board.meta.usedMinutes)
         assertEquals(5, board.meta.overtimeMinutes)
         assertEquals(30, board.meta.redeemedMinutes)
+    }
+
+    @Test
+    fun summary_uses_the_injected_catalog_not_config_points() {
+        // config 里 raisePoints 仍是 10，但目录里改成了 25：必须以目录为准
+        val custom = ItemCatalog(catalog.defs.map {
+            if (it.item == Item.RAISED) it.copy(points = 25) else it
+        })
+        val board = WeekBoardAssembler.build(
+            weekStart, listOf(DayRecord(weekStart, setOf(Item.RAISED))),
+            emptyList(), null, null, cfg, custom
+        )
+        assertEquals(25, board.summary.dailyTotal)
+        assertEquals(custom, board.catalog)
     }
 }

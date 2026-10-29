@@ -72,13 +72,15 @@ object ScoreRules {
     /**
      * 孩子点击格子：把项加入待确认。
      * - 已确认的项不受影响（孩子不能再操作已确认的项）
-     * - 同一互斥组已有已确认项时，不允许申报
+     * - 同一互斥组已有已确认或待确认的其他项时，不允许申报（同组同一天最多一个处于这两种状态）
      * 是否允许孩子申报（[ItemDef.childClaimable]）由调用方判断，这里不管。
      */
     fun claim(item: Item, items: Set<Item>, pending: Set<Item>, catalog: ItemCatalog): Set<Item> {
         if (items.contains(item)) return pending
         val group = catalog.groupOf(item)
-        if (group != null && items.any { it != item && catalog.groupOf(it) == group }) return pending
+        if (group != null && (items + pending).any { it != item && catalog.groupOf(it) == group }) {
+            return pending
+        }
         return pending + item
     }
 

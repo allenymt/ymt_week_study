@@ -19,6 +19,7 @@ object AppContainer {
                 dayDao = db.dayDao(),
                 weekDao = db.weekDao(),
                 examDao = db.examDao(),
+                itemDefDao = db.itemDefDao(),
                 settingsStore = SettingsStore(app)
             ).also { repo = it }
         }

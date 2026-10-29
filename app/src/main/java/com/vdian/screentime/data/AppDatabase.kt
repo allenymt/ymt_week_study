@@ -10,6 +10,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.vdian.screentime.data.entity.DayEntity
 import com.vdian.screentime.data.entity.ExamEntity
+import com.vdian.screentime.data.entity.ItemDefEntity
 import com.vdian.screentime.data.entity.WeekEntity
 import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.Subject
@@ -35,8 +36,8 @@ class Converters {
 }
 
 @Database(
-    entities = [DayEntity::class, WeekEntity::class, ExamEntity::class],
-    version = 2,
+    entities = [DayEntity::class, WeekEntity::class, ExamEntity::class, ItemDefEntity::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -44,6 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dayDao(): DayDao
     abstract fun weekDao(): WeekDao
     abstract fun examDao(): ExamDao
+    abstract fun itemDefDao(): ItemDefDao
 
     companion object {
         @Volatile
@@ -58,10 +60,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v2 -> v3：新建考核项定义表 item_def（方案 3.7）。只建表不插数据——
+         * 现有 7 项的分值存在 DataStore 里，Room 迁移读不到，种子数据由
+         * [ScreenTimeRepository.ensureItemDefs] 在首次读取目录时写入。day_record 不变。
+         * 列定义须与 [ItemDefEntity] 完全一致，否则 Room 打开数据库时校验失败。
+         */
+        internal val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(CREATE_ITEM_DEF)
+            }
+        }
+
+        internal const val CREATE_ITEM_DEF =
+            "CREATE TABLE IF NOT EXISTS `item_def` (" +
+                "`key` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`points` INTEGER NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, " +
+                "`enabled` INTEGER NOT NULL, " +
+                "`childClaimable` INTEGER NOT NULL, " +
+                "`exclusiveGroup` TEXT, " +
+                "`isComplaint` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`key`))"
+
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, AppDatabase::class.java, "screen_time.db"
-            ).addMigrations(MIGRATION_1_2)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

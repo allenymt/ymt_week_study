@@ -22,13 +22,10 @@ data class WeekBoard(
     val meta: WeekMeta,
     val prevBankMinutes: Int,
     val prevSavingCents: Int,
-    val config: RuleConfig
+    val config: RuleConfig,
+    /** 考核项目录，来自 item_def 表。单项分值、投诉判断、互斥组一律以它为准。 */
+    val catalog: ItemCatalog
 ) {
-    /** 考核项目录。过渡期由当前 config 的分值构造，Task 2 起改为读数据库。 */
-    val catalog: ItemCatalog by lazy {
-        ItemCatalog.builtin(RuleConfigCodec.encode(config))
-    }
-
     val summary: WeekSummary by lazy {
         WeekCalculator.summarize(days, exams, meta, config, catalog)
     }
@@ -55,7 +52,8 @@ object WeekBoardAssembler {
         exams: List<ExamRecord>,
         weekEntity: WeekEntity?,
         prevEntity: WeekEntity?,
-        cfg: RuleConfig
+        cfg: RuleConfig,
+        catalog: ItemCatalog
     ): WeekBoard {
         val byDay = days.associateBy { it.epochDay }
         val filled = (0L..6L).map { offset ->
@@ -68,7 +66,8 @@ object WeekBoardAssembler {
             meta = weekEntity?.toDomain() ?: WeekMeta(),
             prevBankMinutes = prevEntity?.prevBankMinutes ?: 0,
             prevSavingCents = prevEntity?.prevSavingCents ?: 0,
-            config = cfg
+            config = cfg,
+            catalog = catalog
         )
     }
 

@@ -117,4 +117,28 @@ class WeekCalculatorTest {
         assertEquals(-40, s.dailyTotal)
         assertEquals(0, s.noComplaintBonusMinutes)
     }
+
+    /** 投诉规则跟随 isComplaint 标记，而不是 COMPLAINT 这个 key。 */
+    @Test
+    fun complaint_rules_follow_flag_not_key() {
+        val customKey = Item("CUSTOM_COMPLAINT")
+        val custom = ItemCatalog(catalog.defs.map {
+            if (it.item == Item.COMPLAINT) it.copy(item = customKey, name = "被老师批评") else it
+        })
+
+        // 自定义 key 的投诉：每周只计前 2 次，且取消无投诉奖励
+        val days = (0L..6L).map { if (it < 3L) day(it, customKey) else day(it, Item.RAISED) }
+        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, custom)
+        assertEquals(2, s.complaintCount)
+        assertEquals(listOf(-30, -30, 0, 10, 10, 10, 10), s.dailyScores)
+        assertEquals(0, s.noComplaintBonusMinutes)
+        assertEquals(30, s.complaintPenalty)
+
+        // 同一目录下，旧的 COMPLAINT key 已不在目录中：按未知项计 0 分、不算投诉
+        val legacyKeyDays = (0L..6L).map { if (it == 0L) day(it, Item.COMPLAINT) else day(it, Item.RAISED) }
+        val s2 = WeekCalculator.summarize(legacyKeyDays, emptyList(), WeekMeta(), cfg, custom)
+        assertEquals(0, s2.complaintCount)
+        assertEquals(60, s2.noComplaintBonusMinutes)
+        assertEquals(0, s2.dailyScores.first())
+    }
 }
