@@ -5,6 +5,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vdian.screentime.data.DataExporter
+import com.vdian.screentime.data.DataImporter
+import com.vdian.screentime.data.ImportPlan
+import com.vdian.screentime.data.ImportResult
+import com.vdian.screentime.data.ImportSettingsException
 import com.vdian.screentime.domain.DeleteItemResult
 import com.vdian.screentime.data.RuleConfigCodec
 import com.vdian.screentime.data.ScreenTimeRepository
@@ -14,6 +18,7 @@ import com.vdian.screentime.domain.ItemDef
 import com.vdian.screentime.domain.ItemDefEditor
 import com.vdian.screentime.domain.RuleConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +46,12 @@ class SettingsViewModel(
 
     private val _message = MutableLiveData<String>()
     val message: LiveData<String> = _message
+
+    /** 导入流程中等待用户处理的对话框；null 表示没有。放在这里，旋转重建后能再弹出来。 */
+    private val _importDialog = MutableLiveData<ImportDialog?>(null)
+    val importDialog: LiveData<ImportDialog?> = _importDialog
+
+    private var importJob: Job? = null
 
     private val _itemDefs = MutableLiveData<List<ItemDef>>(emptyList())
 
@@ -96,6 +107,55 @@ class SettingsViewModel(
         }
     }
 
+    /**
+     * 读取并解析用户选中的文件。[readText] 在 IO 线程执行。
+     * 只解析校验、不碰数据库：失败弹原因，成功弹确认框。
+     */
+    fun importFrom(readText: () -> String) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val text = try {
+                    readText()
+                } catch (e: Exception) {
+                    return@withContext ImportResult.Error("无法读取文件：${e.message ?: e.javaClass.simpleName}")
+                }
+                DataImporter.parse(text)
+            }
+            _importDialog.value = when (result) {
+                is ImportResult.Error -> ImportDialog.Failed(result.reason)
+                is ImportResult.Ok -> ImportDialog.Confirm(
+                    plan = result.plan,
+                    message = DataImporter.confirmMessage(result.plan, repo.currentConfig())
+                )
+            }
+        }
+    }
+
+    /** 关闭导入对话框（取消或已读失败原因）。 */
+    fun dismissImport() {
+        _importDialog.value = null
+    }
+
+    /** 用户确认覆盖。导入进行中再点一次不会重复执行。 */
+    fun confirmImport() {
+        val plan = (_importDialog.value as? ImportDialog.Confirm)?.plan ?: return
+        _importDialog.value = null
+        if (importJob?.isActive == true) return
+        importJob = viewModelScope.launch {
+            _message.value = "正在导入…"
+            _message.value = try {
+                repo.applyImport(plan)
+                "已导入：${plan.days.size} 天、${plan.weeks.size} 周、${plan.exams.size} 条考试记录"
+            } catch (e: ImportSettingsException) {
+                "${e.message}。请核对规则参数与孩子姓名后点保存"
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "导入失败，现有数据未改动：${e.message ?: e.javaClass.simpleName}"
+            }
+        }
+    }
+
     fun clearAll() {
         viewModelScope.launch {
             repo.clearAllData()
@@ -132,4 +192,10 @@ class SettingsViewModel(
             }
         }
     }
+}
+
+/** 导入流程的对话框状态。 */
+sealed class ImportDialog {
+    data class Failed(val reason: String) : ImportDialog()
+    data class Confirm(val plan: ImportPlan, val message: String) : ImportDialog()
 }

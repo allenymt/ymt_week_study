@@ -35,17 +35,24 @@ class ScreenTimeRepository(
      * 不按 (epochDay, item) 分格：每次写都会整行替换 [com.vdian.screentime.data.entity.DayEntity]，
      * 且确认时会顺带改动同一互斥组的另一项，分格加锁会让同一天的两次操作互相覆盖。
      */
-    private val dayLock: KeyedMutex = KeyedMutex()
+    private val dayLock: KeyedMutex = KeyedMutex(),
+    /**
+     * 在一个数据库事务里执行 [block]：抛出即整体回滚。生产环境传 `db.withTransaction`。
+     * 导入（[applyImport]）靠它保证四张表要么全部换新、要么完全不动。
+     */
+    private val transaction: suspend (block: suspend () -> Unit) -> Unit
 ) {
 
     /**
      * 全局周锁：串行化所有对 `week_meta` 的"读-改-写"与银行链重放。
      *
-     * 锁顺序（固定，不得反向）：`dayLock` → `repairLock` → `weekLock` → `seedLock`。
+     * 锁顺序（固定，不得反向）：`dayLock` → `repairLock` → `weekLock` → `itemDefLock` → `seedLock`。
      * - 持 `weekLock` 时绝不再取 `dayLock` / `repairLock`，也绝不再取 `weekLock`（Mutex 不可重入）：
      *   因此锁内只调用带 `Locked` 后缀的私有助手，它们假定调用方已持锁、自身不取锁、
      *   也不调用 [repairBankCarry] / [observeWeek]。
-     * - `itemDefLock` 与 `weekLock` 从不嵌套：目录写完、放锁之后才重放。
+     * - 只有 [applyImport] 同时持 `weekLock` 与 `itemDefLock`，且按 `weekLock` → `itemDefLock` 取；
+     *   其余目录写入方法持 `itemDefLock` 时不取任何别的锁（目录写完、放锁之后才重放），
+     *   所以不存在反向的 `itemDefLock` → `weekLock`。`seedLock` 是最内层：持它时只访问 DAO。
      */
     private val weekLock = Mutex()
 
@@ -434,6 +441,45 @@ class ScreenTimeRepository(
     }
 
     /**
+     * 用导入内容整体替换现有数据（方案 5.1 第 4、5 步）。
+     *
+     * 1. 一个 Room 事务内清空 `day_record`、`week_meta`、`exam_record`、`item_def` 并写入 [plan]。
+     *    事务抛出即回滚，数据库保持导入前的样子，异常原样抛给调用方。
+     * 2. 事务提交后再写 DataStore（规则参数、孩子姓名）。这一步失败时数据库已换新，
+     *    抛出 [ImportSettingsException] 让界面明确告诉用户哪部分没写进去。
+     * 3. 无论第 2 步成败，都按 DataStore 里实际生效的参数重放银行链——文件里的期初缓存一律不信。
+     *
+     * 整段持 `weekLock` → `itemDefLock`（见 [weekLock] 的锁顺序），与重放、周写入、目录写入全部串行。
+     * 锁内只调用 DAO、[recomputeBankChainLocked] 与 [currentCatalog]（后者至多取 `seedLock`），
+     * 不调用 [observeWeek] / [repairBankCarry] / 任何会再取 `weekLock`、`itemDefLock` 的公开方法。
+     */
+    suspend fun applyImport(plan: ImportPlan) {
+        require(plan.itemDefs.isNotEmpty()) { "导入内容缺少考核项定义" }
+        weekLock.withLock {
+            itemDefLock.withLock {
+                transaction {
+                    dayDao.deleteAll()
+                    weekDao.deleteAll()
+                    examDao.deleteAll()
+                    itemDefDao.deleteAll()
+                    itemDefDao.insertAll(plan.itemDefs.map { Mappers.run { it.toEntity() } })
+                    dayDao.insertAll(plan.days)
+                    weekDao.upsertAll(plan.weeks)
+                    examDao.insertAll(plan.exams.map { it.copy(id = 0) })
+                }
+                // item_def 已非空：种子写入永远不该再发生。
+                itemDefsReady = true
+                val settingsError = runCatching {
+                    settingsStore.saveConfig(plan.config)
+                    settingsStore.saveChildName(plan.childName)
+                }.exceptionOrNull()
+                recomputeBankChainLocked()
+                if (settingsError != null) throw ImportSettingsException(settingsError)
+            }
+        }
+    }
+
+    /**
      * 清空三张记录表。
      *
      * 规则参数与孩子姓名属于设置，不在这里删 —— "清空记录"再把分值改回默认值会很意外。
@@ -445,3 +491,7 @@ class ScreenTimeRepository(
         examDao.deleteAll()
     }
 }
+
+/** 导入时记录已整体写入数据库，但规则参数或孩子姓名没能写进 DataStore。 */
+class ImportSettingsException(cause: Throwable) :
+    Exception("记录已导入，但规则参数或孩子姓名保存失败：${cause.message}", cause)

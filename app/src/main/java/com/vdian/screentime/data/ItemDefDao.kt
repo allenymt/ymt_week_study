@@ -36,4 +36,11 @@ interface ItemDefDao {
 
     @Query("DELETE FROM item_def WHERE `key` = :key")
     suspend fun delete(key: String)
+
+    /** 导入用：表已清空，key 重复即失败（默认 ABORT）。 */
+    @Insert
+    suspend fun insertAll(entities: List<ItemDefEntity>)
+
+    @Query("DELETE FROM item_def")
+    suspend fun deleteAll()
 }

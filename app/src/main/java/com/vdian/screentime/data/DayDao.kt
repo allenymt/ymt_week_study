@@ -25,6 +25,10 @@ interface DayDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: DayEntity)
 
+    /** 导入用：表已清空，冲突即说明数据有误，直接失败（默认 ABORT）。 */
+    @Insert
+    suspend fun insertAll(entities: List<DayEntity>)
+
     @Query("DELETE FROM day_record")
     suspend fun deleteAll()
 }

@@ -54,7 +54,9 @@ class DataExporterTest {
         assertEquals(90, root.getJSONObject("config").getInt("baseMinutes"))
         val defs = root.getJSONArray("itemDefs")
         assertEquals(2, defs.length())
-        assertTrue(defs.getJSONObject(0).isNull("exclusiveGroup"))
+        val first = defs.getJSONObject(0)
+        assertTrue(first.has("exclusiveGroup"))
+        assertEquals(JSONObject.NULL, first.get("exclusiveGroup"))
         val c = defs.getJSONObject(1)
         assertEquals("COMPLAINT", c.getString("key"))
         assertEquals(false, c.getBoolean("enabled"))
@@ -100,10 +102,5 @@ class DataExporterTest {
         assertEquals(0, root.getJSONArray("weeks").length())
         assertEquals(0, root.getJSONArray("exams").length())
         assertEquals(0, root.getJSONArray("itemDefs").length())
-    }
-
-    @Test
-    fun print_fixture() {
-        println("FIXTURE_JSON_BEGIN\n$fixture\nFIXTURE_JSON_END")
     }
 }

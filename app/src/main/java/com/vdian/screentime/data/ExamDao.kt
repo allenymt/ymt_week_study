@@ -26,6 +26,10 @@ interface ExamDao {
     @Query("DELETE FROM exam_record WHERE weekStart = :weekStart AND subject = :subject")
     suspend fun delete(weekStart: Long, subject: Subject)
 
+    /** 导入用：id 为 0，由 Room 重新生成。 */
+    @Insert
+    suspend fun insertAll(entities: List<ExamEntity>)
+
     @Query("DELETE FROM exam_record")
     suspend fun deleteAll()
 }

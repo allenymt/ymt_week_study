@@ -25,7 +25,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 设置页：孩子姓名、规则参数、考核项管理分组编辑、导出、清空。
+ * 设置页：孩子姓名、规则参数、考核项管理分组编辑、导出、导入、清空。
  *
  * 输入框与字段的对应关系只在这里列一次；字段名与默认值都取自 [RuleConfigCodec]，
  * 和存储层共用同一份清单，新增参数时不会两边写岔。
@@ -50,6 +50,13 @@ class SettingsFragment : Fragment() {
 
     /** 已经为哪一份导出文本拉起过"另存为"。旋转重建时不该再弹一次。 */
     private var launchedExportJson: String? = null
+
+    private val openDocument = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? -> uri?.let { readImport(it) } }
+
+    /** 当前显示中的导入对话框。视图销毁时关掉，重建后按 [SettingsViewModel.importDialog] 再弹。 */
+    private var importDialog: androidx.appcompat.app.AlertDialog? = null
 
     private val createDocument = registerForActivityResult(
         ActivityResultContracts.CreateDocument()
@@ -80,6 +87,10 @@ class SettingsFragment : Fragment() {
         vm.itemDefs.observe(viewLifecycleOwner) { adapter.submitList(it) }
         binding.exportButton.setOnClickListener { vm.export() }
         binding.clearButton.setOnClickListener { confirmClear() }
+        binding.importButton.setOnClickListener {
+            openDocument.launch(arrayOf("application/json", "*/*"))
+        }
+        vm.importDialog.observe(viewLifecycleOwner) { showImportDialog(it) }
 
         vm.config.observe(viewLifecycleOwner) { renderConfig(it) }
         vm.childName.observe(viewLifecycleOwner) { renderChildName(it) }
@@ -95,6 +106,9 @@ class SettingsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        // 只关窗口不改状态：dismiss() 不触发取消回调，重建后会按 ViewModel 里的状态再弹一次。
+        importDialog?.dismiss()
+        importDialog = null
         super.onDestroyView()
         _binding = null
     }
@@ -221,6 +235,38 @@ class SettingsFragment : Fragment() {
             .show()
     }
 
+    /** 读文件由 ViewModel 放到 IO 线程执行；只捕获 applicationContext 的 resolver，不持有 Fragment。 */
+    private fun readImport(uri: Uri) {
+        val resolver = requireContext().applicationContext.contentResolver
+        vm.importFrom {
+            resolver.openInputStream(uri)?.use { input ->
+                val bytes = input.readBytes()
+                if (bytes.size > MAX_IMPORT_BYTES) error("文件过大")
+                String(bytes, Charsets.UTF_8)
+            } ?: error("无法打开文件")
+        }
+    }
+
+    private fun showImportDialog(state: ImportDialog?) {
+        importDialog?.dismiss()
+        importDialog = null
+        if (state == null) return
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        when (state) {
+            is ImportDialog.Failed -> builder
+                .setTitle("无法导入")
+                .setMessage(state.reason)
+                .setPositiveButton("知道了") { _, _ -> vm.dismissImport() }
+            is ImportDialog.Confirm -> builder
+                .setTitle("确认导入？")
+                .setMessage(state.message)
+                .setPositiveButton("覆盖并导入") { _, _ -> vm.confirmImport() }
+                .setNegativeButton("取消") { _, _ -> vm.dismissImport() }
+        }
+        builder.setOnCancelListener { vm.dismissImport() }
+        importDialog = builder.show()
+    }
+
     private fun writeExport(uri: Uri) {
         val json = launchedExportJson ?: return
         val ok = runCatching {
@@ -237,4 +283,9 @@ class SettingsFragment : Fragment() {
 
     private fun exportFileName(): String =
         "screen-time-${SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())}.json"
+
+    private companion object {
+        /** 导入文件大小上限。正常备份只有几十 KB，超过这个数基本是选错了文件。 */
+        const val MAX_IMPORT_BYTES = 5 * 1024 * 1024
+    }
 }

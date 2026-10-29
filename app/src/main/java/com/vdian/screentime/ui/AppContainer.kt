@@ -1,6 +1,7 @@
 package com.vdian.screentime.ui
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.vdian.screentime.data.AppDatabase
 import com.vdian.screentime.data.ScreenTimeRepository
 import com.vdian.screentime.data.SettingsStore
@@ -20,7 +21,8 @@ object AppContainer {
                 weekDao = db.weekDao(),
                 examDao = db.examDao(),
                 itemDefDao = db.itemDefDao(),
-                settingsStore = SettingsStore(app)
+                settingsStore = SettingsStore(app),
+                transaction = { block -> db.withTransaction { block() } }
             ).also { repo = it }
         }
     }
