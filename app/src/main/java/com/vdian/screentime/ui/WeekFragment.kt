@@ -1,6 +1,12 @@
 package com.vdian.screentime.ui
 
+import android.content.Context
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,17 +18,22 @@ import com.vdian.screentime.data.WeekBoard
 import com.vdian.screentime.databinding.DialogExamInputBinding
 import com.vdian.screentime.databinding.FragmentWeekBinding
 import com.vdian.screentime.databinding.ItemSummaryLineBinding
-import com.vdian.screentime.domain.ItemCatalog
+import com.vdian.screentime.domain.ItemDef
+import com.vdian.screentime.domain.WeekDates
 import com.vdian.screentime.domain.Subject
 
 /**
- * 本周表格：7 天 × 6 项的可点格子，对应纸质记录表。
+ * 本周表格：7 天 × N 项（随目录变化，横向滚动）的可点格子，对应纸质记录表。
  * 点击语义随"孩子申报模式"开关切换，见 [WeekViewModel]。
  *
  * 下半张纸质表（汇总卡片 + 一句话总结）也在这里渲染。界面不做任何算术，
  * 所有数字都直接取自 [WeekBoard.summary]。
  */
 class WeekFragment : Fragment() {
+
+    private companion object {
+        const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
+    }
 
     private var _binding: FragmentWeekBinding? = null
     private val binding get() = _binding!!
@@ -53,7 +64,6 @@ class WeekFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = WeekRowAdapter(
-            items = ItemColumns.ROW_ITEMS,
             childMode = { vm.childMode.value == true },
             onChildTap = { day, item -> vm.onChildTap(day, item) },
             onParentTap = { day, item -> vm.onParentTap(day, item) },
@@ -79,8 +89,10 @@ class WeekFragment : Fragment() {
         vm.board.observe(viewLifecycleOwner) { board ->
             lastBoard = board
             binding.weekTitle.text = DayLabels.formatDateRange(board.weekStart)
-            renderHeader(board.catalog)
-            adapter.submit(board.days, board.summary.dailyScores)
+            val columns = board.catalog.columns()
+            renderHeader(board, columns)
+            renderSideColumns(board)
+            adapter.submit(columns, board.days)
             renderSummary(board)
             renderNotes(board)
         }
@@ -92,18 +104,51 @@ class WeekFragment : Fragment() {
     }
 
     /**
-     * 画列标题行。两侧用与数据行同宽的占位，中间的格子走 [ItemColumns]，
-     * 这样表头与数据行的列宽、列序都锁在一起。
+     * 画中间的列标题行，并把表头行与数据行的总宽设成 N 列的宽度（RecyclerView 放在
+     * HorizontalScrollView 里，宽度必须显式给定）。格子走 [ItemColumns]，列宽、列序锁在一起。
      */
-    private fun renderHeader(catalog: ItemCatalog) {
+    private fun renderHeader(board: WeekBoard, columns: List<ItemDef>) {
         val ctx = requireContext()
         val row = binding.headerRow
         row.removeAllViews()
-        row.addView(ItemColumns.spacer(ctx, ItemColumns.LABEL_WIDTH_DP))
-        ItemColumns.ROW_ITEMS.forEach { item ->
-            row.addView(ItemColumns.headerCell(ctx, DayLabels.itemHeader(item, catalog)))
+        columns.forEach { def ->
+            row.addView(ItemColumns.headerCell(ctx, DayLabels.itemHeader(def.item, board.catalog)))
         }
-        row.addView(ItemColumns.spacer(ctx, ItemColumns.SCORE_WIDTH_DP))
+        val width = ItemColumns.areaWidthPx(ctx, columns.size)
+        binding.weekRows.layoutParams = binding.weekRows.layoutParams.apply { this.width = width }
+    }
+
+    /**
+     * 画固定的左侧星期列与右侧小计列：顶部占位与表头同高，7 行与数据行同高。
+     * 小计直接取自 [WeekBoard.summary]。
+     */
+    private fun renderSideColumns(board: WeekBoard) {
+        val ctx = requireContext()
+        val rowH = ItemColumns.dp(ctx, ItemColumns.ROW_HEIGHT_DP)
+        val headerH = ItemColumns.dp(ctx, ItemColumns.HEADER_HEIGHT_DP)
+        val labels = binding.dayLabelColumn
+        val scores = binding.dayScoreColumn
+        labels.removeAllViews()
+        scores.removeAllViews()
+        labels.addView(View(ctx).apply { layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, headerH) })
+        scores.addView(View(ctx).apply { layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, headerH) })
+        board.days.forEachIndexed { index, day ->
+            val score = board.summary.dailyScores.getOrElse(index) { 0 }
+            labels.addView(sideText(ctx, rowH).apply {
+                text = DayLabels.weekdayName(WeekDates.dayOfWeek(day.epochDay))
+            })
+            scores.addView(sideText(ctx, rowH).apply {
+                text = score.toString()
+                setTextColor(if (score < 0) Color.RED else Color.BLACK)
+            })
+        }
+    }
+
+    private fun sideText(ctx: Context, heightPx: Int): TextView = TextView(ctx).apply {
+        layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, heightPx)
+        gravity = Gravity.CENTER
+        textSize = 14f
+        setTypeface(typeface, Typeface.BOLD)
     }
 
     /**

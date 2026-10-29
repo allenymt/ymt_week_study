@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.vdian.screentime.databinding.ItemWeekRowBinding
 import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemDef
 import com.vdian.screentime.domain.WeekDates
 
 /** 三态：空 / 孩子已申报待确认 / 家长已确认。只有 [CONFIRMED] 计分。 */
@@ -22,13 +23,13 @@ object CellStateResolver {
 }
 
 /**
- * 7 行 × 6 列的可点表格。每行一个 [DayRecord]，格子由代码生成，避免 6 份重复 XML。
+ * 7 行 × N 列（N 随目录变化）的可点表格。每行一个 [DayRecord]，格子由代码生成。
+ * 本 Adapter 只渲染中间的考核项格子；星期标签与小计列由 [WeekFragment] 在两侧固定渲染。
  *
  * 点击路由由 [childMode] 决定：孩子模式走 [onChildTap]（只申报，不计分），
  * 家长模式走 [onParentTap]（确认/取消）。
  */
 class WeekRowAdapter(
-    private val items: List<Item>,
     private val childMode: () -> Boolean,
     private val onChildTap: (epochDay: Long, item: Item) -> Unit,
     private val onParentTap: (epochDay: Long, item: Item) -> Unit,
@@ -36,11 +37,12 @@ class WeekRowAdapter(
 ) : RecyclerView.Adapter<WeekRowAdapter.RowHolder>() {
 
     private var days: List<DayRecord> = emptyList()
-    private var scores: List<Int> = emptyList()
+    private var columns: List<ItemDef> = emptyList()
 
-    fun submit(newDays: List<DayRecord>, newScores: List<Int>) {
+    /** 列集合与数据一起提交；列变化时 [onBindViewHolder] 会让各行重建格子。 */
+    fun submit(newColumns: List<ItemDef>, newDays: List<DayRecord>) {
+        columns = newColumns
         days = newDays
-        scores = newScores
         notifyDataSetChanged()
     }
 
@@ -55,7 +57,7 @@ class WeekRowAdapter(
 
     override fun onBindViewHolder(holder: RowHolder, position: Int) {
         val day = days[position]
-        holder.bind(day, scores.getOrElse(position) { 0 })
+        holder.bind(day, columns)
     }
 
     inner class RowHolder(private val binding: ItemWeekRowBinding) :
@@ -63,25 +65,33 @@ class WeekRowAdapter(
 
         private val cells = mutableListOf<TextView>()
 
-        init {
-            items.forEach { _ ->
+        private var builtFor: List<Item>? = null
+
+        /** 列集合（项及顺序）变了就整行重建；否则复用已有格子。 */
+        private fun ensureCells(columns: List<ItemDef>) {
+            val key = columns.map { it.item }
+            if (key == builtFor) return
+            binding.root.removeAllViews()
+            cells.clear()
+            columns.forEach { _ ->
                 val tv = ItemColumns.cell(binding.root.context)
-                binding.cellContainer.addView(tv)
+                binding.root.addView(tv)
                 cells.add(tv)
             }
+            builtFor = key
         }
 
-        fun bind(day: DayRecord, score: Int) {
-            binding.dayLabel.text = DayLabels.weekdayName(WeekDates.dayOfWeek(day.epochDay))
-            binding.dayScore.text = score.toString()
-            binding.dayScore.setTextColor(if (score < 0) Color.RED else Color.BLACK)
-
-            items.forEachIndexed { index, item ->
+        fun bind(day: DayRecord, columns: List<ItemDef>) {
+            ensureCells(columns)
+            columns.forEachIndexed { index, def ->
+                val item = def.item
                 val cell = cells[index]
                 render(cell, CellStateResolver.resolve(item, day))
                 cell.setOnClickListener {
-                    if (childMode()) onChildTap(day.epochDay, item)
-                    else onParentTap(day.epochDay, item)
+                    if (childMode()) {
+                        // 孩子不可申报的项：UI 不派发（仓库层另有兜底）
+                        if (def.childClaimable) onChildTap(day.epochDay, item)
+                    } else onParentTap(day.epochDay, item)
                 }
                 cell.setOnLongClickListener {
                     onParentLongPress(day.epochDay, item)
