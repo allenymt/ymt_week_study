@@ -68,4 +68,12 @@ class ItemDefEditorTest {
         assertEquals("-10", ItemDefEditor.signedPoints(-10))
         assertEquals("0", ItemDefEditor.signedPoints(0))
     }
+
+    @Test
+    fun deleteDecision_complaint_wins_over_referenced() {
+        assertEquals(DeleteItemResult.COMPLAINT, ItemDefEditor.deleteDecision(true, false))
+        assertEquals(DeleteItemResult.COMPLAINT, ItemDefEditor.deleteDecision(true, true))
+        assertEquals(DeleteItemResult.REFERENCED, ItemDefEditor.deleteDecision(false, true))
+        assertEquals(DeleteItemResult.DELETED, ItemDefEditor.deleteDecision(false, false))
+    }
 }

@@ -1,12 +1,16 @@
 package com.vdian.screentime.data
 
+import com.vdian.screentime.data.entity.DayEntity
 import com.vdian.screentime.data.entity.ExamEntity
+import com.vdian.screentime.data.entity.ItemDefEntity
 import com.vdian.screentime.data.entity.WeekEntity
 import com.vdian.screentime.domain.DayRecord
+import com.vdian.screentime.domain.DeleteItemResult
 import com.vdian.screentime.domain.ExamRecord
 import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.ItemDef
+import com.vdian.screentime.domain.ItemDefEditor
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.ScoreRules
 import com.vdian.screentime.domain.Subject
@@ -102,19 +106,17 @@ class ScreenTimeRepository(
         recomputeBankChain()
     }
 
-    /** 删除考核项。被任何日记录引用过（已确认或待确认）则不删并返回 false——否则历史分数会凭空变化。 */
-    suspend fun deleteItemDef(item: Item): Boolean {
+    /** 删除考核项。投诉项或被任何日记录引用过（已确认或待确认）的项不删——否则历史分数会凭空变化。 */
+    suspend fun deleteItemDef(item: Item): DeleteItemResult {
         ensureItemDefs()
-        val deleted = itemDefLock.withLock {
-            if (isItemReferenced(item)) {
-                false
-            } else {
-                itemDefDao.delete(item.key)
-                true
-            }
+        val result = itemDefLock.withLock {
+            val def = itemDefDao.all().firstOrNull { it.key == item.key }
+            val r = ItemDefEditor.deleteDecision(def?.isComplaint == true, isItemReferenced(item))
+            if (r == DeleteItemResult.DELETED) itemDefDao.delete(item.key)
+            r
         }
-        if (deleted) recomputeBankChain()
-        return deleted
+        if (result == DeleteItemResult.DELETED) recomputeBankChain()
+        return result
     }
 
     /** 数据量小，全表读入内存判断。 */
@@ -392,6 +394,21 @@ class ScreenTimeRepository(
         (0L..6L).map { DayRecord(weekStart + it) }
 
     // ---- 设置页用：全量读取、导出与清空 ------------------------------------
+
+    /** 导出用：全部日实体（保留 weekStart 等原始字段）。 */
+    suspend fun exportDays(): List<DayEntity> = dayDao.all()
+
+    /** 导出用：全部周实体，含银行缓存与手动储蓄调整。 */
+    suspend fun exportWeeks(): List<WeekEntity> = weekDao.all()
+
+    /** 导出用：全部考试实体。 */
+    suspend fun exportExams(): List<ExamEntity> = examDao.all()
+
+    /** 导出用：全部考核项定义，含已停用项。 */
+    suspend fun exportItemDefs(): List<ItemDefEntity> {
+        ensureItemDefs()
+        return itemDefDao.all()
+    }
 
     /** 全部日记录，按天升序。 */
     suspend fun allDays(): List<DayRecord> = dayDao.all().map { Mappers.run { it.toDomain() } }

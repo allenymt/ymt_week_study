@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vdian.screentime.data.DataExporter
+import com.vdian.screentime.domain.DeleteItemResult
 import com.vdian.screentime.data.RuleConfigCodec
 import com.vdian.screentime.data.ScreenTimeRepository
 import com.vdian.screentime.data.SettingsStore
@@ -83,9 +84,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             val json = withContext(Dispatchers.IO) {
                 DataExporter.toJson(
-                    days = repo.allDays(),
-                    weeks = repo.allWeeks(),
-                    exams = repo.allExams(),
+                    days = repo.exportDays(),
+                    weeks = repo.exportWeeks(),
+                    exams = repo.exportExams(),
+                    itemDefs = repo.exportItemDefs(),
                     cfg = repo.currentConfig(),
                     childName = repo.childName()
                 )
@@ -123,8 +125,11 @@ class SettingsViewModel(
 
     fun deleteItem(item: Item) {
         viewModelScope.launch {
-            _message.value =
-                if (repo.deleteItemDef(item)) "已删除" else "该项有历史记录，只能停用"
+            _message.value = when (repo.deleteItemDef(item)) {
+                DeleteItemResult.DELETED -> "已删除"
+                DeleteItemResult.COMPLAINT -> "投诉项不能删除，可以停用"
+                DeleteItemResult.REFERENCED -> "该项有历史记录，只能停用"
+            }
         }
     }
 }

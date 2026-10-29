@@ -1,7 +1,18 @@
 package com.vdian.screentime.domain
 
 /** 设置页新增 / 编辑考核项时的校验与构造。纯逻辑，不依赖 Android。 */
+/** 删除考核项的结果。 */
+enum class DeleteItemResult { DELETED, COMPLAINT, REFERENCED }
+
 object ItemDefEditor {
+
+    /** 投诉项永不可删；其余被历史引用过也不可删。 */
+    fun deleteDecision(isComplaint: Boolean, referenced: Boolean): DeleteItemResult = when {
+        isComplaint -> DeleteItemResult.COMPLAINT
+        referenced -> DeleteItemResult.REFERENCED
+        else -> DeleteItemResult.DELETED
+    }
+
 
     const val MAX_POINTS = 1000
 
