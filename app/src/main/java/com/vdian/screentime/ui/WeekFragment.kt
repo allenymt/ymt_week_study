@@ -18,9 +18,12 @@ import com.vdian.screentime.domain.Subject
 /**
  * 本周表格：7 天 × 6 项的可点格子，对应纸质记录表。
  * 点击语义随"孩子申报模式"开关切换，见 [WeekViewModel]。
+/**
+ * 本周表格：7 天 × 6 项的可点格子，对应纸质记录表。
  *
  * 下半张纸质表（汇总卡片 + 一句话总结）也在这里渲染。界面不做任何算术，
  * 所有数字都直接取自 [WeekBoard.summary]。
+ */
  */
 class WeekFragment : Fragment() {
 
@@ -41,7 +44,6 @@ class WeekFragment : Fragment() {
      * 避免"回填 -> 触发保存 -> 又写库 -> 又回填"的回声。
      */
     private var fillingNotes = false
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -66,7 +68,6 @@ class WeekFragment : Fragment() {
         // 否则在表格区域起手时手势会被 RecyclerView 吃掉，页面卡住不动。
         binding.weekRows.isNestedScrollingEnabled = false
         binding.weekRows.itemAnimator = null
-
         binding.prevWeek.setOnClickListener { vm.prevWeek() }
         binding.nextWeek.setOnClickListener { vm.nextWeek() }
         binding.childModeSwitch.setOnCheckedChangeListener { _, checked ->
@@ -83,6 +84,7 @@ class WeekFragment : Fragment() {
             adapter.submit(board.days, board.summary.dailyScores)
             renderSummary(board)
             renderNotes(board)
+        }
         }
     }
 
@@ -195,5 +197,6 @@ class WeekFragment : Fragment() {
         b.examChinese.setText(scores[Subject.CHINESE]?.takeIf { it > 0 }?.toString() ?: "")
         b.examMath.setText(scores[Subject.MATH]?.takeIf { it > 0 }?.toString() ?: "")
         b.examScience.setText(scores[Subject.SCIENCE]?.takeIf { it > 0 }?.toString() ?: "")
+    }
     }
 }

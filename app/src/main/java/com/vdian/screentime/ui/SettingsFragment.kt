@@ -18,13 +18,6 @@ import com.vdian.screentime.domain.RuleConfig
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-/**
- * 设置页：孩子姓名、21 个规则参数分组编辑、导出、清空。
- *
- * 输入框与字段的对应关系只在这里列一次；字段名与默认值都取自 [RuleConfigCodec]，
- * 和存储层共用同一份清单，新增参数时不会两边写岔。
- */
 class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
@@ -49,7 +42,6 @@ class SettingsFragment : Fragment() {
     private val createDocument = registerForActivityResult(
         ActivityResultContracts.CreateDocument()
     ) { uri: Uri? -> uri?.let { writeExport(it) } }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -76,12 +68,10 @@ class SettingsFragment : Fragment() {
             binding.settingsMessage.text = msg
         }
     }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
-
     /**
      * 参数输入框与字段名的对应表。顺序即界面上的分组顺序。
      * 字段名与默认值均取自 [RuleConfigCodec]，改默认值不必改这里。
@@ -151,7 +141,6 @@ class SettingsFragment : Fragment() {
         val base = rendered ?: RuleConfig()
         val texts = fieldViews().associate { (name, field) -> name to field.text.toString() }
         vm.save(texts, binding.childNameInput.text.toString().trim(), base)
-        // 收起软键盘，让用户看到"已保存"的提示。
         activity?.currentFocus?.clearFocus()
     }
 

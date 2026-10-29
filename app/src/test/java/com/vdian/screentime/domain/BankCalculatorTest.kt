@@ -12,8 +12,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 100, prevSavingCents = 0,
+            weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(150, r.bankBalanceMinutes)
+        assertEquals(0, r.bankOverflow)
         )
         assertEquals(150, r.bankBalanceMinutes)
         assertEquals(0, r.bankOverflow)
@@ -24,8 +30,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 400, prevSavingCents = 0,
             weekBalanceMinutes = 200, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 400, prevSavingCents = 0,
+            weekBalanceMinutes = 200, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(480, r.bankBalanceMinutes)
+        assertEquals(120, r.bankOverflow)     // 600 - 480
         )
         assertEquals(480, r.bankBalanceMinutes)
         assertEquals(120, r.bankOverflow)     // 600 - 480
@@ -36,8 +48,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 100, prevSavingCents = 0,
+            weekBalanceMinutes = 50, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(0, r.bankOverflow)
+    }
         )
         assertEquals(0, r.bankOverflow)
     }
@@ -47,8 +65,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 100, prevSavingCents = 0,
             weekBalanceMinutes = -300, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 100, prevSavingCents = 0,
+            weekBalanceMinutes = -300, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(0, r.bankBalanceMinutes)   // 100 - 300 -> 夹到 0
+        assertEquals(0, r.bankOverflow)
         )
         assertEquals(0, r.bankBalanceMinutes)   // 100 - 300 -> 夹到 0
         assertEquals(0, r.bankOverflow)
@@ -59,8 +83,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 480, prevSavingCents = 0,
             weekBalanceMinutes = 60, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 480, prevSavingCents = 0,
+            weekBalanceMinutes = 60, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(480, r.bankBalanceMinutes)
+        assertEquals(60, r.bankOverflow)
         )
         assertEquals(480, r.bankBalanceMinutes)
         assertEquals(60, r.bankOverflow)
@@ -155,6 +185,7 @@ class BankCalculatorTest {
         )
         assertEquals(10000, r.savingCents)
     }
+    }
 
     @Test
     fun saving_is_never_decreased_by_penalties() {
@@ -162,8 +193,14 @@ class BankCalculatorTest {
         val r = BankCalculator.compute(
             prevBankMinutes = 0, prevSavingCents = 1000,
             weekBalanceMinutes = -200, redeemedMinutesThisWeek = 0,
+        val r = BankCalculator.compute(
+            prevBankMinutes = 0, prevSavingCents = 1000,
+            weekBalanceMinutes = -200, redeemedMinutesThisWeek = 0,
             redeemedCentsThisWeek = 0,
             savingAdjustCents = 0, cfg = cfg
+        )
+        assertEquals(1000, r.savingCents)
+    }
         )
         assertEquals(1000, r.savingCents)
     }

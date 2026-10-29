@@ -31,6 +31,8 @@ object Mappers {
         savingAdjustCents = savingAdjustCents,
         noteGood = noteGood,
         noteImprove = noteImprove
+        noteGood = noteGood,
+        noteImprove = noteImprove
     )
 
     fun WeekMeta.toEntity(
@@ -46,6 +48,8 @@ object Mappers {
         prevBankMinutes = prevBankMinutes,
         prevSavingCents = prevSavingCents,
         savingAdjustCents = savingAdjustCents,
+        noteGood = noteGood,
+        noteImprove = noteImprove
         noteGood = noteGood,
         noteImprove = noteImprove
     )

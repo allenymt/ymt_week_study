@@ -13,13 +13,6 @@ import com.vdian.screentime.data.WeekBoard
 import com.vdian.screentime.databinding.DialogRedeemBinding
 import com.vdian.screentime.databinding.FragmentBankBinding
 import com.vdian.screentime.domain.BankCalculator
-
-/**
- * 屏幕银行页：大字余额、本周明细、兑换与记录入口。
- *
- * 界面不做任何算术 —— 分钟与钱的换算一律回到 [BankCalculator] 的纯函数，
- * 与仓库层的兑换规则共用同一套实现，避免两处口径漂移。
- */
 class BankFragment : Fragment() {
 
     private var _binding: FragmentBankBinding? = null
@@ -31,7 +24,6 @@ class BankFragment : Fragment() {
 
     /** 最近一次渲染的 board，供兑换对话框取本周额度与规则参数。 */
     private var lastBoard: WeekBoard? = null
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -54,12 +46,10 @@ class BankFragment : Fragment() {
             renderBoard(board)
         }
     }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
-
     private fun renderRollup(r: BankRollup) {
         binding.bankBalance.text = r.balanceText()
         binding.bankTotalRedeemed.text = yuanText(r.totalRedeemedCents)
@@ -126,7 +116,7 @@ class BankFragment : Fragment() {
     private fun showMinutesDialog(title: String, onConfirm: (Int) -> Unit) {
         val board = lastBoard ?: return
         val step = board.config.usageStepMinutes
-        val values = (0..12).map { it * step }    // 0 ~ 12 个单位，够日常录入
+        val values = (0..12).map { it * step }
 
         val picker = NumberPicker(requireContext()).apply {
             minValue = 0
@@ -151,7 +141,6 @@ class BankFragment : Fragment() {
         val board = lastBoard ?: return
         val available = vm.rollup.value?.cashAvailableCents ?: 0
         val capYuan = board.config.savingCapCents / 100
-        // 存入时最多补到上限；扣减时最多扣掉当前可用金额。
         val maxYuan = if (isAdd) {
             ((board.config.savingCapCents - available) / 100).coerceAtLeast(0)
         } else {

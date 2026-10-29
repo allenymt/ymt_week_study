@@ -12,7 +12,11 @@ object ScoreRules {
         Item.ENGLISH -> cfg.englishPoints
         Item.READING -> cfg.readingPoints
         Item.EXERCISE -> cfg.exercisePoints
+        Item.ENGLISH -> cfg.englishPoints
+        Item.READING -> cfg.readingPoints
+        Item.EXERCISE -> cfg.exercisePoints
         Item.PRAISE -> cfg.praisePoints
+        Item.COMPLAINT -> -cfg.complaintPenalty
         Item.COMPLAINT -> -cfg.complaintPenalty
     }
 
