@@ -6,6 +6,7 @@ import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.ExamRecord
 import com.vdian.screentime.domain.Item
 import com.vdian.screentime.domain.RuleConfig
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.ScoreRules
 import com.vdian.screentime.domain.Subject
 import com.vdian.screentime.domain.WeekDates
@@ -63,7 +64,7 @@ class ScreenTimeRepository(
             val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
                 ?: DayRecord(epochDay)
             val items = current.items
-            val pending = ScoreRules.claim(item, items, current.pending)
+            val pending = ScoreRules.claim(item, items, current.pending, transitionalCatalog())
             saveDay(weekStart, current.copy(pending = pending))
         }
 
@@ -72,7 +73,7 @@ class ScreenTimeRepository(
         cellLock.withLock(epochDay to item) {
             val current = dayDao.getByDay(epochDay)?.let { Mappers.run { it.toDomain() } }
                 ?: DayRecord(epochDay)
-            val (items, pending) = ScoreRules.advance(item, current.items, current.pending)
+            val (items, pending) = ScoreRules.advance(item, current.items, current.pending, transitionalCatalog())
             saveDay(weekStart, current.copy(items = items, pending = pending))
         }
 
@@ -85,6 +86,10 @@ class ScreenTimeRepository(
                 saveDay(weekStart, current.copy(pending = pending))
             }
         }
+
+    /** 过渡目录：由当前设置里的分值构造。Task 2 起改为读数据库。 */
+    private suspend fun transitionalCatalog(): ItemCatalog =
+        ItemCatalog.builtin(RuleConfigCodec.encode(currentConfig()))
 
     private suspend fun saveDay(weekStart: Long, day: DayRecord) {
         ensureWeekRow(weekStart)

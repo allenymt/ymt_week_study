@@ -23,8 +23,8 @@ object DataExporter {
         days.forEach { d ->
             dayArray.put(JSONObject().apply {
                 put("epochDay", d.epochDay)
-                put("items", JSONArray(d.items.map { it.name }))
-                put("pending", JSONArray(d.pending.map { it.name }))
+                put("items", JSONArray(d.items.map { it.key }))
+                put("pending", JSONArray(d.pending.map { it.key }))
             })
         }
         root.put("days", dayArray)

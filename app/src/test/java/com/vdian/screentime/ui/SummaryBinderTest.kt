@@ -3,6 +3,7 @@ package com.vdian.screentime.ui
 import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.ExamRecord
 import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.Subject
 import com.vdian.screentime.domain.WeekCalculator
@@ -13,6 +14,7 @@ import org.junit.Test
 class SummaryBinderTest {
 
     private val cfg = RuleConfig()
+    private val catalog = ItemCatalog.builtin()
 
     private fun lineMap(summary: com.vdian.screentime.domain.WeekSummary) =
         SummaryBinder.lines(summary).toMap()
@@ -23,7 +25,7 @@ class SummaryBinderTest {
             (0L..6L).map { DayRecord(it, setOf(Item.RAISED)) },
             listOf(ExamRecord(Subject.ENGLISH, 95)),
             WeekMeta(usedMinutes = 30),
-            cfg
+            cfg, catalog
         )
         val m = lineMap(s)
         assertEquals("60", m["保底"])
@@ -40,7 +42,7 @@ class SummaryBinderTest {
     fun complaint_penalty_line_is_negative() {
         val s = WeekCalculator.summarize(
             listOf(DayRecord(0, setOf(Item.COMPLAINT))),
-            emptyList(), WeekMeta(), cfg
+            emptyList(), WeekMeta(), cfg, catalog
         )
         assertEquals("-30", lineMap(s)["投诉扣分"])
     }
@@ -48,7 +50,7 @@ class SummaryBinderTest {
     @Test
     fun lines_are_ordered_for_display() {
         val names = SummaryBinder.lines(
-            WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg)
+            WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg, catalog)
         ).map { it.first }
         assertEquals(
             listOf(
@@ -61,14 +63,14 @@ class SummaryBinderTest {
 
     @Test
     fun overflow_hint_is_shown_only_when_capped() {
-        val under = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg)
+        val under = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg, catalog)
         assertEquals("", SummaryBinder.overflowHint(under))
 
         val days = (0L..6L).map {
             DayRecord(it, setOf(Item.RAISED, Item.NEAT_WRITING, Item.ENGLISH,
                 Item.READING, Item.EXERCISE))
         }
-        val over = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg)
+        val over = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, catalog)
         assertEquals("已封顶 4 小时，超出 120 分钟可换小奖品", SummaryBinder.overflowHint(over))
     }
 }

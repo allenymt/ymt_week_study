@@ -10,15 +10,16 @@ object WeekCalculator {
         days: List<DayRecord>,
         exams: List<ExamRecord>,
         meta: WeekMeta,
-        cfg: RuleConfig
+        cfg: RuleConfig,
+        catalog: ItemCatalog
     ): WeekSummary {
-        val scores = ScoreRules.dailyScores(days, cfg)
+        val scores = ScoreRules.dailyScores(days, cfg, catalog)
         val dailyTotal = scores.sum()
         val examTotal = ScoreRules.examTotal(exams, cfg)
         val base = cfg.baseMinutes
 
-        // 只有全部有记录的天都无投诉才给，且至少要有记录
-        val noComplaint = days.isNotEmpty() && days.none { it.items.contains(Item.COMPLAINT) }
+        // 只有全部有记录的天都无投诉才给，且至少要有记录；新扣分项是普通项，不影响此奖励
+        val noComplaint = days.isNotEmpty() && days.none { d -> d.items.any { catalog.isComplaint(it) } }
         val bonus = if (noComplaint) cfg.noComplaintBonusMinutes else 0
 
         // 计算每日与考试的合计（可能为负）
@@ -52,8 +53,8 @@ object WeekCalculator {
             totalUsedMinutes = meta.usedMinutes + meta.overtimeMinutes + meta.redeemedMinutes,
             redeemedCents = meta.redeemedCents,
             balance = balance,
-            complaintCount = ScoreRules.effectiveComplaintCount(days, cfg),
-            complaintPenalty = cfg.complaintPenalty,
+            complaintCount = ScoreRules.effectiveComplaintCount(days, cfg, catalog),
+            complaintPenalty = catalog.complaintPenalty(),
             capMinutes = cfg.weekCapMinutes
         )
     }

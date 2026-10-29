@@ -5,6 +5,7 @@ import com.vdian.screentime.domain.BankCalculator
 import com.vdian.screentime.domain.BankResult
 import com.vdian.screentime.domain.DayRecord
 import com.vdian.screentime.domain.ExamRecord
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.RuleConfig
 import com.vdian.screentime.domain.WeekCalculator
 import com.vdian.screentime.domain.WeekMeta
@@ -23,8 +24,13 @@ data class WeekBoard(
     val prevSavingCents: Int,
     val config: RuleConfig
 ) {
+    /** 考核项目录。过渡期由当前 config 的分值构造，Task 2 起改为读数据库。 */
+    val catalog: ItemCatalog by lazy {
+        ItemCatalog.builtin(RuleConfigCodec.encode(config))
+    }
+
     val summary: WeekSummary by lazy {
-        WeekCalculator.summarize(days, exams, meta, config)
+        WeekCalculator.summarize(days, exams, meta, config, catalog)
     }
 
     val bank: BankResult by lazy {

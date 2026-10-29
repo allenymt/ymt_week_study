@@ -7,6 +7,7 @@ import org.junit.Test
 class WeekCalculatorTest {
 
     private val cfg = RuleConfig()
+    private val catalog = ItemCatalog.builtin()
 
     private fun day(d: Long, vararg items: Item) = DayRecord(d, items.toSet())
 
@@ -16,20 +17,20 @@ class WeekCalculatorTest {
     @Test
     fun base_minutes_are_granted_unconditionally() {
         // 一条记录都没有，保底仍给 60
-        val s = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg)
+        val s = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(60, s.baseMinutes)
     }
 
     @Test
     fun no_complaint_bonus_requires_all_seven_days_clean() {
         val clean = (0L..6L).map { day(it, Item.RAISED) }
-        val s1 = WeekCalculator.summarize(clean, emptyList(), WeekMeta(), cfg)
+        val s1 = WeekCalculator.summarize(clean, emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(60, s1.noComplaintBonusMinutes)
 
         val withComplaint = (0L..6L).map {
             if (it == 3L) day(it, Item.COMPLAINT) else day(it, Item.RAISED)
         }
-        val s2 = WeekCalculator.summarize(withComplaint, emptyList(), WeekMeta(), cfg)
+        val s2 = WeekCalculator.summarize(withComplaint, emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(0, s2.noComplaintBonusMinutes)
     }
 
@@ -37,7 +38,7 @@ class WeekCalculatorTest {
     fun total_earned_sums_all_sources() {
         val days = (0L..6L).map { day(it, Item.RAISED) }        // 7 * 10 = 70
         val exams = listOf(ExamRecord(Subject.ENGLISH, 95))     // +30
-        val s = WeekCalculator.summarize(days, exams, WeekMeta(), cfg)
+        val s = WeekCalculator.summarize(days, exams, WeekMeta(), cfg, catalog)
         assertEquals(70, s.dailyTotal)
         assertEquals(30, s.examTotal)
         assertEquals(60 + 60 + 70 + 30, s.totalEarned)          // 220
@@ -50,7 +51,7 @@ class WeekCalculatorTest {
             day(it, Item.RAISED, Item.NEAT_WRITING, Item.ENGLISH,
                 Item.READING, Item.EXERCISE)
         }
-        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg)
+        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(420, s.dailyTotal)
         assertEquals(240, s.cappedEarned)
         assertEquals(240, s.totalEarned)          // 给上限 240 设为上限
@@ -60,7 +61,7 @@ class WeekCalculatorTest {
     @Test
     fun negative_daily_total_reduces_earned() {
         val days = listOf(day(0, Item.COMPLAINT), day(1, Item.COMPLAINT))
-        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg)
+        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(-60, s.dailyTotal)
         // 60 保底 + 0 无投诉奖 - 60 = 0
         assertEquals(0, s.totalEarned)
@@ -70,7 +71,7 @@ class WeekCalculatorTest {
     fun balance_subtracts_used_overtime_and_redeemed() {
         val days = (0L..6L).map { day(it, Item.RAISED) }
         val meta = WeekMeta(usedMinutes = 30, overtimeMinutes = 10, redeemedMinutes = 60)
-        val s = WeekCalculator.summarize(days, emptyList(), meta, cfg)
+        val s = WeekCalculator.summarize(days, emptyList(), meta, cfg, catalog)
         // 60 + 60 + 70 - 30 - 10 - 60 = 90
         assertEquals(90, s.balance)
     }
@@ -78,7 +79,7 @@ class WeekCalculatorTest {
     @Test
     fun balance_can_go_negative_when_overused() {
         val meta = WeekMeta(usedMinutes = 500)
-        val s = WeekCalculator.summarize(emptyList(), emptyList(), meta, cfg)
+        val s = WeekCalculator.summarize(emptyList(), emptyList(), meta, cfg, catalog)
         // 60 - 500 = -440
         assertEquals(-440, s.balance)
         assertTrue(s.balance < 0)
@@ -86,7 +87,34 @@ class WeekCalculatorTest {
 
     @Test
     fun overflow_is_zero_when_under_cap() {
-        val s = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg)
+        val s = WeekCalculator.summarize(emptyList(), emptyList(), WeekMeta(), cfg, catalog)
         assertEquals(0, s.overflow)
+    }
+
+    @Test
+    fun new_deduction_item_does_not_cancel_no_complaint_bonus() {
+        val days = listOf(DayRecord(0, setOf(Item.HOMEWORK_PASSIVE)))
+        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, catalog)
+        assertEquals(60, s.noComplaintBonusMinutes)
+        assertEquals(-10, s.dailyTotal)
+    }
+
+    @Test
+    fun new_deduction_items_sum_over_the_week_without_cap() {
+        val days = (0L..3L).map { DayRecord(it, setOf(Item.HOMEWORK_PASSIVE)) }
+        val s = WeekCalculator.summarize(days, emptyList(), WeekMeta(), cfg, catalog)
+        assertEquals(-40, s.dailyTotal)
+        assertEquals(0, s.complaintCount)
+    }
+
+    @Test
+    fun complaint_penalty_comes_from_catalog() {
+        val custom = ItemCatalog.builtin(mapOf("complaintPenalty" to 40))
+        val s = WeekCalculator.summarize(
+            listOf(DayRecord(0, setOf(Item.COMPLAINT))), emptyList(), WeekMeta(), cfg, custom
+        )
+        assertEquals(40, s.complaintPenalty)
+        assertEquals(-40, s.dailyTotal)
+        assertEquals(0, s.noComplaintBonusMinutes)
     }
 }

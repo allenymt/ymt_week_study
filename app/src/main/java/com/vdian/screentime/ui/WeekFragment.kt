@@ -12,7 +12,7 @@ import com.vdian.screentime.data.WeekBoard
 import com.vdian.screentime.databinding.DialogExamInputBinding
 import com.vdian.screentime.databinding.FragmentWeekBinding
 import com.vdian.screentime.databinding.ItemSummaryLineBinding
-import com.vdian.screentime.domain.RuleConfig
+import com.vdian.screentime.domain.ItemCatalog
 import com.vdian.screentime.domain.Subject
 
 /**
@@ -79,7 +79,7 @@ class WeekFragment : Fragment() {
         vm.board.observe(viewLifecycleOwner) { board ->
             lastBoard = board
             binding.weekTitle.text = DayLabels.formatDateRange(board.weekStart)
-            renderHeader(board.config)
+            renderHeader(board.catalog)
             adapter.submit(board.days, board.summary.dailyScores)
             renderSummary(board)
             renderNotes(board)
@@ -95,13 +95,13 @@ class WeekFragment : Fragment() {
      * 画列标题行。两侧用与数据行同宽的占位，中间的格子走 [ItemColumns]，
      * 这样表头与数据行的列宽、列序都锁在一起。
      */
-    private fun renderHeader(cfg: RuleConfig) {
+    private fun renderHeader(catalog: ItemCatalog) {
         val ctx = requireContext()
         val row = binding.headerRow
         row.removeAllViews()
         row.addView(ItemColumns.spacer(ctx, ItemColumns.LABEL_WIDTH_DP))
         ItemColumns.ROW_ITEMS.forEach { item ->
-            row.addView(ItemColumns.headerCell(ctx, DayLabels.itemHeader(item, cfg)))
+            row.addView(ItemColumns.headerCell(ctx, DayLabels.itemHeader(item, catalog)))
         }
         row.addView(ItemColumns.spacer(ctx, ItemColumns.SCORE_WIDTH_DP))
     }

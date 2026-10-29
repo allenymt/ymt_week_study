@@ -17,13 +17,13 @@ import com.vdian.screentime.domain.Subject
 class Converters {
     @TypeConverter
     fun itemsToString(items: Set<Item>?): String =
-        items.orEmpty().joinToString(",") { it.name }
+        items.orEmpty().joinToString(",") { it.key }
 
     @TypeConverter
     fun stringToItems(raw: String?): Set<Item> =
         raw.orEmpty().split(",")
             .filter { it.isNotBlank() }
-            .mapNotNull { name -> Item.values().firstOrNull { it.name == name } }
+            .map { Item(it) }   // 任意非空 key 都保留，目录里没有的项计 0 分
             .toSet()
 
     @TypeConverter

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.vdian.screentime.domain.Item
+import com.vdian.screentime.domain.ItemCatalog
 
 /**
  * 表格列定义的唯一来源：列顺序、每列宽度权重、格子 TextView 的构造。
@@ -15,11 +16,8 @@ import com.vdian.screentime.domain.Item
  */
 object ItemColumns {
 
-    /** 列顺序，与纸质记录表一致。 */
-    val ROW_ITEMS: List<Item> = listOf(
-        Item.RAISED, Item.NEAT_WRITING, Item.ENGLISH,
-        Item.READING, Item.EXERCISE, Item.PRAISE, Item.COMPLAINT
-    )
+    /** 列顺序。过渡值：取内置目录的启用项，Task 3 改为随数据变化。 */
+    val ROW_ITEMS: List<Item> = ItemCatalog.builtin().columns().map { it.item }
 
     /** 行首星期标签 / 行尾当日小计的宽度，表头用同宽占位才能对齐。 */
     const val LABEL_WIDTH_DP = 56

@@ -21,6 +21,6 @@ data class WeekSummary(
     val redeemedCents: Int,
     val balance: Int,                    // 本周结余，可为负
     val complaintCount: Int,             // 本周生效的投诉次数
-    val complaintPenalty: Int,           // 单次投诉扣分（来自 RuleConfig，供界面展示用）
+    val complaintPenalty: Int,           // 单次投诉扣分绝对值（来自 ItemCatalog，供界面展示用）
     val capMinutes: Int                  // 单周封顶分钟数（来自 RuleConfig，供界面展示用）
 )
