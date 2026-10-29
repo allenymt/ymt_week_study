@@ -16,6 +16,7 @@ import com.vdian.screentime.domain.ScoreRules
 import com.vdian.screentime.domain.Subject
 import com.vdian.screentime.domain.WeekDates
 import com.vdian.screentime.domain.WeekMeta
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 class ScreenTimeRepository(
     private val dayDao: DayDao,
@@ -445,9 +447,12 @@ class ScreenTimeRepository(
      *
      * 1. 一个 Room 事务内清空 `day_record`、`week_meta`、`exam_record`、`item_def` 并写入 [plan]。
      *    事务抛出即回滚，数据库保持导入前的样子，异常原样抛给调用方。
-     * 2. 事务提交后再写 DataStore（规则参数、孩子姓名）。这一步失败时数据库已换新，
-     *    抛出 [ImportSettingsException] 让界面明确告诉用户哪部分没写进去。
+     * 2. 事务提交后再写 DataStore（规则参数、孩子姓名）。
      * 3. 无论第 2 步成败，都按 DataStore 里实际生效的参数重放银行链——文件里的期初缓存一律不信。
+     *
+     * 第 2、3 步在 [NonCancellable] 里执行，调用方协程被取消也会做完。任一步失败时数据库已换新，
+     * 两步都做完后抛出 [ImportPartialException]，同时带上两处错误；只有事务内（含之前）抛出的异常
+     * 才意味着"现有数据未改动"。
      *
      * 整段持 `weekLock` → `itemDefLock`（见 [weekLock] 的锁顺序），与重放、周写入、目录写入全部串行。
      * 锁内只调用 DAO、[recomputeBankChainLocked] 与 [currentCatalog]（后者至多取 `seedLock`），
@@ -469,12 +474,26 @@ class ScreenTimeRepository(
                 }
                 // item_def 已非空：种子写入永远不该再发生。
                 itemDefsReady = true
-                val settingsError = runCatching {
-                    settingsStore.saveConfig(plan.config)
-                    settingsStore.saveChildName(plan.childName)
-                }.exceptionOrNull()
-                recomputeBankChainLocked()
-                if (settingsError != null) throw ImportSettingsException(settingsError)
+                // 事务已提交：剩下的步骤不可取消（用户离开设置页也要做完），
+                // 否则会留下"新记录 + 旧参数/旧姓名"且无任何提示。
+                withContext(NonCancellable) {
+                    val settingsError = try {
+                        settingsStore.saveConfig(plan.config)
+                        settingsStore.saveChildName(plan.childName)
+                        null
+                    } catch (e: Exception) {
+                        e
+                    }
+                    val recomputeError = try {
+                        recomputeBankChainLocked()
+                        null
+                    } catch (e: Exception) {
+                        e
+                    }
+                    if (settingsError != null || recomputeError != null) {
+                        throw ImportPartialException(settingsError, recomputeError)
+                    }
+                }
             }
         }
     }
@@ -492,6 +511,27 @@ class ScreenTimeRepository(
     }
 }
 
-/** 导入时记录已整体写入数据库，但规则参数或孩子姓名没能写进 DataStore。 */
-class ImportSettingsException(cause: Throwable) :
-    Exception("记录已导入，但规则参数或孩子姓名保存失败：${cause.message}", cause)
+/**
+ * 导入的记录已整体写入数据库，但提交后的步骤有失败：
+ * [settingsError] 规则参数或孩子姓名没写进 DataStore；[recomputeError] 银行链重放失败
+ * （下次启动的校准会重算）。至少一个非空。
+ */
+class ImportPartialException(
+    val settingsError: Throwable?,
+    val recomputeError: Throwable?
+) : Exception(buildMessage(settingsError, recomputeError), settingsError ?: recomputeError) {
+    private companion object {
+        fun buildMessage(settingsError: Throwable?, recomputeError: Throwable?): String {
+            val parts = mutableListOf<String>()
+            if (settingsError != null) {
+                parts += "规则参数或孩子姓名保存失败（${settingsError.message ?: settingsError.javaClass.simpleName}），" +
+                    "请核对后点保存"
+            }
+            if (recomputeError != null) {
+                parts += "银行余额重算失败（${recomputeError.message ?: recomputeError.javaClass.simpleName}），" +
+                    "重启应用后会自动重算"
+            }
+            return "记录已导入，但" + parts.joinToString("；")
+        }
+    }
+}

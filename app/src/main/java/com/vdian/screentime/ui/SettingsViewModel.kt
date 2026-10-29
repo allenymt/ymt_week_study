@@ -8,7 +8,7 @@ import com.vdian.screentime.data.DataExporter
 import com.vdian.screentime.data.DataImporter
 import com.vdian.screentime.data.ImportPlan
 import com.vdian.screentime.data.ImportResult
-import com.vdian.screentime.data.ImportSettingsException
+import com.vdian.screentime.data.ImportPartialException
 import com.vdian.screentime.domain.DeleteItemResult
 import com.vdian.screentime.data.RuleConfigCodec
 import com.vdian.screentime.data.ScreenTimeRepository
@@ -146,8 +146,8 @@ class SettingsViewModel(
             _message.value = try {
                 repo.applyImport(plan)
                 "已导入：${plan.days.size} 天、${plan.weeks.size} 周、${plan.exams.size} 条考试记录"
-            } catch (e: ImportSettingsException) {
-                "${e.message}。请核对规则参数与孩子姓名后点保存"
+            } catch (e: ImportPartialException) {
+                e.message.orEmpty()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

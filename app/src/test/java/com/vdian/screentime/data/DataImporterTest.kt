@@ -125,6 +125,17 @@ class DataImporterTest {
         err(root.toString())
     }
 
+    /** 周记录多于日记录覆盖的周数：只有条数校验能拦住（逐条读取不会越界）。 */
+    @Test
+    fun v1_extra_week_row_is_rejected_by_count_check() {
+        val root = JSONObject(v1Text)
+        val weeks = root.getJSONArray("weeks")
+        weeks.put(JSONObject(weeks.getJSONObject(3).toString()))
+        val reason = err(root.toString())
+        assertTrue(reason, reason.contains("无法对应"))
+        assertTrue(reason, reason.contains("5 条"))
+    }
+
     @Test
     fun v1_with_exams_is_error() {
         val root = JSONObject(v1Text)
