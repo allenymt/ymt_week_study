@@ -1,0 +1,263 @@
+{
+  "days": [
+    {
+      "epochDay": 20731,
+      "items": [],
+      "pending": []
+    },
+    {
+      "epochDay": 20732,
+      "items": [],
+      "pending": []
+    },
+    {
+      "epochDay": 20733,
+      "items": [],
+      "pending": []
+    },
+    {
+      "epochDay": 20734,
+      "items": [
+        "ENGLISH",
+        "READING",
+        "PRAISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20735,
+      "items": [
+        "ENGLISH",
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20736,
+      "items": [],
+      "pending": []
+    },
+    {
+      "epochDay": 20737,
+      "items": [
+        "ENGLISH"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20738,
+      "items": [
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20739,
+      "items": [
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20740,
+      "items": [
+        "RAISED",
+        "EXERCISE",
+        "READING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20741,
+      "items": [
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20742,
+      "items": [
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20743,
+      "items": [
+        "NEAT_WRITING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20744,
+      "items": [
+        "ENGLISH",
+        "READING",
+        "NEAT_WRITING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20745,
+      "items": [
+        "RAISED",
+        "NEAT_WRITING",
+        "READING",
+        "EXERCISE",
+        "PRAISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20746,
+      "items": [
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20747,
+      "items": [
+        "READING",
+        "RAISED"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20748,
+      "items": [
+        "EXERCISE",
+        "READING",
+        "RAISED",
+        "NEAT_WRITING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20749,
+      "items": [
+        "RAISED",
+        "READING",
+        "EXERCISE",
+        "NEAT_WRITING",
+        "ENGLISH"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20750,
+      "items": [
+        "RAISED",
+        "ENGLISH",
+        "READING",
+        "NEAT_WRITING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20751,
+      "items": [
+        "RAISED"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20752,
+      "items": [
+        "NEAT_WRITING",
+        "ENGLISH",
+        "READING",
+        "EXERCISE"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20753,
+      "items": [
+        "PRAISE",
+        "EXERCISE",
+        "ENGLISH",
+        "READING",
+        "NEAT_WRITING"
+      ],
+      "pending": []
+    },
+    {
+      "epochDay": 20754,
+      "items": [
+        "NEAT_WRITING",
+        "ENGLISH",
+        "READING",
+        "EXERCISE",
+        "PRAISE"
+      ],
+      "pending": []
+    }
+  ],
+  "weeks": [
+    {
+      "usedMinutes": 0,
+      "overtimeMinutes": 180,
+      "redeemedMinutes": 0,
+      "redeemedCents": 0,
+      "noteGood": "作业积极，效率高",
+      "noteImprove": "字认真写，尿尿别乱尿"
+    },
+    {
+      "usedMinutes": 240,
+      "overtimeMinutes": 0,
+      "redeemedMinutes": 0,
+      "redeemedCents": 0,
+      "noteGood": "效率非常高，态度有很大改善，坚持每天运动",
+      "noteImprove": "语文成绩有待提升"
+    },
+    {
+      "usedMinutes": 390,
+      "overtimeMinutes": 0,
+      "redeemedMinutes": 0,
+      "redeemedCents": 0,
+      "noteGood": "",
+      "noteImprove": ""
+    },
+    {
+      "usedMinutes": 0,
+      "overtimeMinutes": 0,
+      "redeemedMinutes": 0,
+      "redeemedCents": 0,
+      "noteGood": "",
+      "noteImprove": ""
+    }
+  ],
+  "exams": [],
+  "config": {
+    "raisePoints": 20,
+    "neatWritingPoints": 10,
+    "englishPoints": 10,
+    "readingPoints": 10,
+    "exercisePoints": 15,
+    "praisePoints": 10,
+    "complaintPenalty": 30,
+    "complaintMaxPerWeek": 2,
+    "baseMinutes": 30,
+    "noComplaintBonusMinutes": 60,
+    "weekCapMinutes": 480,
+    "bankCapMinutes": 960,
+    "redeemUnitMinutes": 30,
+    "redeemUnitCents": 200,
+    "weeklyRedeemCapCents": 1000,
+    "savingCapCents": 5000,
+    "englishMidMin": 85,
+    "englishHighMin": 90,
+    "englishMidBonus": 15,
+    "englishHighBonus": 30,
+    "otherSubjectMin": 90,
+    "otherSubjectBonus": 30
+  },
+  "childName": "余铭桐"
+}
